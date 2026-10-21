@@ -222,7 +222,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 #modeTabs .mt{padding:7px 18px;font-size:17px;font-weight:bold;background:#3a3f48;border:3px solid #000;cursor:pointer;box-shadow:inset -3px -3px 0 rgba(0,0,0,.4),inset 3px 3px 0 rgba(255,255,255,.15)}
 #modeTabs .mt.on{background:#e65100}#modeTabs .mt:hover{filter:brightness(1.2)}
 #lobby{position:fixed;inset:0;z-index:55;background:radial-gradient(ellipse at center,rgba(14,24,36,.97),rgba(0,0,0,.98));display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:12px 0;user-select:text;-webkit-user-select:text}
-#lobby h1{font-size:34px;margin:0 0 6px;letter-spacing:6px;color:#ffd54f;text-shadow:4px 4px 0 #6d3b00}
+#lobby h1{font-size:30px;margin:0 0 4px;letter-spacing:6px;color:#ffd54f;text-shadow:4px 4px 0 #6d3b00}
 #lbHead{display:flex;gap:14px;align-items:center;margin-bottom:10px;font-size:15px}#lbRole{color:#80d8ff;font-weight:bold}
 #lobby input[type=text],#lobby select,#netInv textarea,#lobby textarea{background:#0d1014;color:#eee;border:2px solid #000;box-shadow:inset 0 0 0 1px #3a414d;font:inherit;padding:4px 6px}
 #lobby textarea,#netInv textarea{width:100%;height:64px;resize:none;font-family:Consolas,monospace;font-size:12px;word-break:break-all}
@@ -234,19 +234,19 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 #lbTeams{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .lbTeam{background:rgba(0,0,0,.45);border:3px solid #000;padding:6px}.lbTeam h3{margin:0 0 4px;font-size:16px}
 .lbTeam h3.rad,.lbTeam .rad{color:#7cdc6a}.lbTeam h3.dire{color:#ff6b5b}
-.lbSlot{display:grid;grid-template-columns:46px 1fr auto;grid-template-rows:auto auto;gap:0 8px;align-items:center;background:#1c2027;border:2px solid #000;margin:3px 0;padding:3px 6px;min-height:50px}
-.lbSlot img,.lbSlot .nohero{grid-row:1/3;width:44px;height:44px;background:#0c0f14;border:2px solid #000;display:flex;align-items:center;justify-content:center;color:#555;font-size:22px}
+.lbSlot{display:grid;grid-template-columns:38px 1fr auto;grid-template-rows:auto auto;gap:0 8px;align-items:center;background:#1c2027;border:2px solid #000;margin:2px 0;padding:2px 6px;min-height:42px}
+.lbSlot img,.lbSlot .nohero{grid-row:1/3;width:36px;height:36px;background:#0c0f14;border:2px solid #000;display:flex;align-items:center;justify-content:center;color:#555;font-size:22px}
 .lbSlot .nm{font-weight:bold;font-size:15px}.lbSlot .nm small{font-size:11px;color:#ffd54f;margin-left:3px}.lbSlot .hero{font-size:13px;color:#ccc}.lbSlot .ua{color:#78909c;font-size:11px}
 .lbSlot .st{grid-row:1/3;grid-column:3;font-size:12px;color:#aaa;text-align:right}.lbSlot.ready .st{color:#7cdc6a}
 .lbSlot.me{border-color:#ffd54f}.lbSlot.k-e{opacity:.75}.lbSlot.k-e .nm{color:#777}.lbSlot.k-b .nm{color:#90caf9}
 .lbSlot .mcbtn{font-size:12px;padding:1px 6px}
 #lbHeroes{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:4px;background:rgba(0,0,0,.45);border:3px solid #000;padding:6px}
 .lbHero{display:flex;flex-direction:column;align-items:center;background:#1c2027;border:2px solid #000;cursor:pointer;padding:2px;font-size:12px}
-.lbHero img{width:52px;height:52px}.lbHero:hover{border-color:#ffd54f}.lbHero.mine{border-color:#ffd54f;background:#4e3b10}
+.lbHero img{width:40px;height:40px}.lbHero:hover{border-color:#ffd54f}.lbHero.mine{border-color:#ffd54f;background:#4e3b10}
 .lbHero.taken{opacity:.3;cursor:not-allowed;filter:grayscale(1)}
 #lbBar{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;font-size:14px}#lbWarn{flex:1;color:#ffab40;font-size:13px}
 .mcbtn.big{font-size:18px;padding:6px 22px}#lbStart{background:#2e7d32}#lbStart:disabled{background:#444;color:#888;cursor:not-allowed}#lbReady{background:#1565c0}
-#lbLogBox{background:rgba(0,0,0,.45);border:3px solid #000;padding:4px 6px}#lbLog{height:84px;overflow-y:auto;font-size:13px;color:#cfd8dc;line-height:1.45}
+#lbLogBox{background:rgba(0,0,0,.45);border:3px solid #000;padding:4px 6px}#lbLog{height:60px;overflow-y:auto;font-size:13px;color:#cfd8dc;line-height:1.45}
 #lbChat{width:100%;box-sizing:border-box;margin-top:4px}
 #netInv{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:62;width:min(620px,94vw);max-height:88vh;overflow-y:auto;padding:10px 14px;user-select:text;-webkit-user-select:text}
 #netInv h3{display:flex;justify-content:space-between;align-items:center;margin:0 0 4px;color:#ffd54f}
@@ -333,7 +333,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = '38f75946f3';
+const BUILD_ID = '53b9ce4e95';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -6202,7 +6202,7 @@ function lobbyReq(pid, m) {
     case 'ready': s.ready = !!m.on && !!s.hero; break;
     case 'name': s.name = String(m.name || '玩家').slice(0, 16); { const p = netPeer(pid); if (p) p.name = s.name; } break;
     case 'move': if (t && t.k === 'e') { LOB.slots[m.i] = s; LOB.slots[i] = { k: 'e' }; } break;
-    case 'bot': if (host && t) { if (t.k === 'e') LOB.slots[m.i] = { k: 'b', diff: m.diff === undefined ? 1 : m.diff, hero: null }; else if (t.k === 'b') LOB.slots[m.i] = { k: 'e' }; } break;
+    case 'bot': if (host && t) { if (t.k === 'e') LOB.slots[m.i] = { k: 'b', diff: m.diff === undefined ? 1 : clamp(m.diff | 0, 0, 2), hero: null }; else if (t.k === 'b') LOB.slots[m.i] = { k: 'e' }; } break;
     case 'diff': if (host && t && t.k === 'b') t.diff = clamp(m.diff | 0, 0, 2); break;
     case 'fill': if (host) LOB.slots.forEach((x, j) => { if (x.k === 'e') LOB.slots[j] = { k: 'b', diff: clamp(m.diff | 0, 0, 2), hero: null }; }); break;
     case 'clear': if (host) LOB.slots.forEach((x, j) => { if (x.k === 'b') LOB.slots[j] = { k: 'e' }; }); break;

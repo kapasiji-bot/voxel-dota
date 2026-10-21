@@ -29,7 +29,7 @@ function lobbyReq(pid, m) {
     case 'ready': s.ready = !!m.on && !!s.hero; break;
     case 'name': s.name = String(m.name || '玩家').slice(0, 16); { const p = netPeer(pid); if (p) p.name = s.name; } break;
     case 'move': if (t && t.k === 'e') { LOB.slots[m.i] = s; LOB.slots[i] = { k: 'e' }; } break;
-    case 'bot': if (host && t) { if (t.k === 'e') LOB.slots[m.i] = { k: 'b', diff: m.diff === undefined ? 1 : m.diff, hero: null }; else if (t.k === 'b') LOB.slots[m.i] = { k: 'e' }; } break;
+    case 'bot': if (host && t) { if (t.k === 'e') LOB.slots[m.i] = { k: 'b', diff: m.diff === undefined ? 1 : clamp(m.diff | 0, 0, 2), hero: null }; else if (t.k === 'b') LOB.slots[m.i] = { k: 'e' }; } break;
     case 'diff': if (host && t && t.k === 'b') t.diff = clamp(m.diff | 0, 0, 2); break;
     case 'fill': if (host) LOB.slots.forEach((x, j) => { if (x.k === 'e') LOB.slots[j] = { k: 'b', diff: clamp(m.diff | 0, 0, 2), hero: null }; }); break;
     case 'clear': if (host) LOB.slots.forEach((x, j) => { if (x.k === 'b') LOB.slots[j] = { k: 'e' }; }); break;
