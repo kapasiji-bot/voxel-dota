@@ -29,7 +29,7 @@ function botUpdate(h, dt) {
   if (b.retreat) {
     const f = G.fountains[h.team];
     if (f && dst(h, f) < 11 && h.hp > h.maxHp * 0.92 && h.mana > h.maxMana * 0.6) b.retreat = false;
-    else { botRetreat(h, b, s); return; }
+    else { if (!s.foes.length && botLoot(h, b)) return; botRetreat(h, b, s); return; }   // a hurt carry still grabs a nearby Aegis / Cheese when safe
   }
   if (botTpLane(h, b, s)) { setMode(h, b, 'tp'); return; }   // ai/bot/tp.js
   // --- defend base structures (TP when far) ---

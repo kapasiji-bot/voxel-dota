@@ -166,13 +166,14 @@ module.exports = ({ test, boot, assert }) => {
       for (const h of team) { A.setLevel(16, h); for (let k = 0; k < 4; k++) for (const i of [3, 0, 1, 2]) A.learnSkill(i, h); h.items = h.items.map(() => null); for (const it of items[h.def.id]) A.giveItem(it, h);
         h.hp = h.maxHp; h.mana = h.maxMana; h.x = PIT.x + 14 + Math.random(); h.z = PIT.z + 14; h.bot.retreat = false; h.bot.farmCamp = null; h.gold = 0; }
       A.G.time = 1260; A.clearLog();
-      let t = 0; while (t < 150 && !ev('pickup', e => e.item === 'aegis').length) { A.simulate(2); t += 2; }
+      let t = 0; while (t < 150 && !ev('pickup', e => e.item === 'aegis').length) { A.simulate(2); t += 2; if (!o.amK && ev('roshanKill', e => e.team === 0).length) o.amK = { dead: am.dead, d: Math.round(Math.hypot(am.x - PIT.x, am.z - PIT.z)) }; }
       o.rosh = { call: ev('roshCall', e => e.team === 0).length, hits: ev('damage', e => e.tgt === (A.rosh().log[0] ? -1 : A.rosh().unit && A.rosh().unit.id) ).length, kill: ev('roshanKill', e => e.team === 0).length, t,
-        aegis: team.filter(h => A.countItem(h, 'aegis')).map(h => h.def.id).join() };
+        aegis: team.filter(h => A.countItem(h, 'aegis')).map(h => h.def.id).join(), amK: o.amK };
       return o;
     });
     assert(r.farm.kills >= 2 && r.farm.mode >= 1 && r.farm.gold > 0, 'farm ' + JSON.stringify(r.farm));
-    assert(r.rosh.call >= 1 && r.rosh.kill === 1 && r.rosh.aegis === 'am', 'roshan ' + JSON.stringify(r.rosh));
+    // the carry gets the Aegis when alive at the pit (aegisTaker); otherwise another team member may take it
+    assert(r.rosh.call >= 1 && r.rosh.kill === 1 && (r.rosh.aegis === 'am' || (r.rosh.aegis && r.rosh.amK && r.rosh.amK.dead)), 'roshan ' + JSON.stringify(r.rosh));
     return `farm kills=${r.farm.kills} gold=${r.farm.gold}; Roshan killed in ${r.rosh.t}s, Aegis → ${r.rosh.aegis}`;
   });
 
