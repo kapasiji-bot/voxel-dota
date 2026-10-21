@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>方块刀塔 · Voxel DOTA 原型</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;overflow:hidden;background:#000;width:100%;height:100%}
+body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans SC","WenQuanYi Micro Hei","Noto Serif CJK SC",sans-serif;color:#eee;user-select:none;-webkit-user-select:none}
+#gl,#ov{position:fixed;left:0;top:0;width:100vw;height:100vh;display:block}
+#ov{pointer-events:none}
+.hidden{display:none!important}
+.px{image-rendering:pixelated}
+/* ---------- hero select ---------- */
+#select{position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(10,20,30,.55),rgba(0,0,0,.9));display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50}
+#select h1{font-size:46px;margin:0 0 4px;letter-spacing:6px;color:#ffd54f;text-shadow:4px 4px 0 #6d3b00,0 0 20px rgba(255,170,0,.5)}
+#select .sub{color:#bbb;margin-bottom:22px;font-size:15px}
+#cards{display:flex;gap:28px}
+.card{width:340px;background:linear-gradient(#2a2f38,#15181d);border:4px solid #444;box-shadow:0 0 0 2px #000,8px 8px 0 rgba(0,0,0,.5);padding:14px;cursor:pointer;transition:transform .12s,border-color .12s}
+.card:hover{transform:translateY(-6px);border-color:#ffd54f}
+.card .pimg{width:100%;height:230px;background:#0c0f14;border:3px solid #000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.card .pimg img{height:100%}
+.card h2{margin:10px 0 2px;font-size:26px}
+.card .attr{font-size:13px;color:#aaa;margin-bottom:6px}
+.card .desc{font-size:13px;color:#ccc;line-height:1.5;margin-bottom:8px;min-height:40px}
+.card .sk{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13px}
+.card .btn{margin-top:10px;text-align:center;background:#b71c1c;border:3px solid #000;padding:8px;font-size:18px;font-weight:bold;box-shadow:inset -3px -3px 0 rgba(0,0,0,.4),inset 3px 3px 0 rgba(255,255,255,.2)}
+.card.lina .btn{background:#e65100}
+.ico{width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:18px;color:#fff;border:2px solid #000;text-shadow:2px 2px 0 #000;box-shadow:inset -3px -3px 0 rgba(0,0,0,.35),inset 3px 3px 0 rgba(255,255,255,.25)}
+#ctrlHelp{margin-top:20px;font-size:13px;color:#aaa;background:rgba(0,0,0,.5);border:2px solid #333;padding:8px 14px;line-height:1.7;max-width:720px;text-align:center}
+#ctrlHelp b{color:#ffd54f}
+/* ---------- top bar ---------- */
+#top{position:fixed;top:0;left:50%;transform:translateX(-50%);display:flex;align-items:stretch;z-index:10;pointer-events:none}
+#top>div{background:rgba(10,12,16,.85);border:3px solid #000;padding:4px 14px;font-size:15px;display:flex;align-items:center;gap:8px}
+#timer{font-size:22px!important;font-weight:bold;color:#fff;min-width:96px;justify-content:center}
+.rad{color:#7cdc6a}.dire{color:#ff6b5b}
+#kda{position:fixed;top:0;right:0;background:rgba(10,12,16,.85);border:3px solid #000;padding:5px 12px;font-size:14px;z-index:10;line-height:1.5;text-align:right}
+#kda b{color:#ffd54f}
+#msgs{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:12;text-align:center;pointer-events:none}
+#msgs div{font-size:18px;font-weight:bold;text-shadow:2px 2px 0 #000,0 0 6px #000;margin:3px;animation:fadeMsg 3.5s forwards}
+@keyframes fadeMsg{0%{opacity:0;transform:translateY(-8px)}8%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+#errmsg{position:fixed;bottom:200px;left:50%;transform:translateX(-50%);color:#ff5252;font-size:18px;font-weight:bold;text-shadow:2px 2px 0 #000;z-index:12;pointer-events:none;transition:opacity .3s}
+/* ---------- HUD ---------- */
+#hud{position:fixed;bottom:0;left:max(236px,calc(50% - 498px));transform-origin:bottom left;display:flex;align-items:flex-end;gap:0;z-index:10}
+.panel{background:linear-gradient(#262b33,#14171c);border:3px solid #000;box-shadow:inset 0 0 0 2px #3a414d}
+#pbox{width:150px;height:170px;position:relative;padding:6px}
+#portrait{width:132px;height:120px;background:#0b0e12;border:2px solid #000;object-fit:cover;display:block}
+#lvl{position:absolute;left:4px;top:4px;width:34px;height:34px;background:#3949ab;border:3px solid #000;font-weight:bold;font-size:18px;display:flex;align-items:center;justify-content:center;text-shadow:2px 2px 0 #000}
+#xpbar{height:10px;background:#111;border:2px solid #000;margin-top:4px;position:relative}
+#xpfill{height:100%;background:#ab47bc;width:0}
+#heroName{font-size:13px;text-align:center;margin-top:2px;color:#ffd54f}
+#stats{width:156px;height:170px;padding:6px 8px;font-size:12px;line-height:1.48}
+#stats div{display:flex;justify-content:space-between}
+#stats b{color:#fff}
+#stats .sa{color:#ef5350}#stats .sg{color:#66bb6a}#stats .si{color:#42a5f5}
+#mid{padding:4px 8px 6px;width:470px;height:170px;display:flex;flex-direction:column;justify-content:flex-end}
+#buffs{height:24px;display:flex;gap:4px;margin-bottom:22px;overflow:hidden}
+.buff{height:24px;padding:0 6px;font-size:12px;display:flex;align-items:center;border:2px solid #000;background:#333}
+#skills{display:flex;gap:10px;justify-content:center;margin-bottom:6px}
+.skill{width:64px;height:64px;position:relative;cursor:pointer}
+.skill .ico{width:64px;height:64px;font-size:28px}
+.skill.nolvl .ico{filter:grayscale(1) brightness(.45)}
+.skill.nomana .ico{filter:saturate(.4) brightness(.6) hue-rotate(200deg)}
+.skill.active .ico{outline:3px solid #ffd54f}
+.cdov{position:absolute;inset:2px;pointer-events:none}
+.cdtxt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:bold;text-shadow:2px 2px 0 #000;pointer-events:none}
+.key{position:absolute;left:2px;top:1px;font-size:12px;font-weight:bold;background:rgba(0,0,0,.7);padding:0 3px;pointer-events:none}
+.mana{position:absolute;right:2px;bottom:2px;font-size:11px;background:rgba(0,40,120,.8);padding:0 3px;pointer-events:none}
+.pips{position:absolute;left:0;right:0;bottom:-7px;display:flex;justify-content:center;gap:3px;pointer-events:none}
+.pips i{width:12px;height:5px;background:#333;border:1px solid #000;display:block}
+.pips i.on{background:#ffca28}
+.learn{position:absolute;left:50%;top:-21px;transform:translateX(-50%);width:28px;height:20px;background:#fbc02d;color:#000;font-weight:bold;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;animation:pulse 1s infinite}
+@keyframes pulse{50%{background:#fff176}}
+.passive{position:absolute;right:2px;top:1px;font-size:10px;color:#ccc;background:rgba(0,0,0,.6);padding:0 2px;pointer-events:none}
+.bar{height:18px;background:#111;border:2px solid #000;position:relative;margin-top:3px}
+.bar .fill{height:100%;width:100%}
+#hpbar .fill{background:linear-gradient(#5fd35f,#2e8b2e)}
+#mpbar .fill{background:linear-gradient(#5ea8ff,#1e5bbf)}
+.bar span{position:absolute;inset:0;text-align:center;font-size:13px;line-height:14px;font-weight:bold;text-shadow:1px 1px 0 #000}
+.bar em{position:absolute;right:6px;top:0;font-size:11px;line-height:14px;font-style:normal;color:#cfe}
+#ibox{width:200px;height:170px;padding:8px}
+#items{display:grid;grid-template-columns:repeat(3,58px);gap:5px}
+.slot{width:58px;height:44px;background:#0c0f13;border:2px solid #000;position:relative;cursor:pointer}
+.slot .ico{width:100%;height:100%;font-size:20px;border:none}
+.slot .key{font-size:10px}
+#goldRow{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+#gold{color:#ffd54f;font-size:20px;font-weight:bold;text-shadow:2px 2px 0 #000}
+#gold:before{content:"";display:inline-block;width:12px;height:12px;background:#ffc107;border:2px solid #7a5200;margin-right:6px}
+.mcbtn{background:#5d4037;border:3px solid #000;padding:4px 10px;font-weight:bold;cursor:pointer;font-size:14px;box-shadow:inset -3px -3px 0 rgba(0,0,0,.4),inset 3px 3px 0 rgba(255,255,255,.2);color:#fff}
+.mcbtn:hover{background:#795548}
+/* ---------- minimap ---------- */
+#mmBox{position:fixed;left:0;bottom:0;padding:6px;z-index:11}
+#minimap{width:220px;height:220px;display:block;border:2px solid #000;cursor:pointer;image-rendering:pixelated}
+#fps{font-size:11px;color:#9a9;position:absolute;right:10px;top:8px;pointer-events:none;text-shadow:1px 1px 0 #000}
+/* ---------- target info ---------- */
+#tinfo{position:fixed;left:6px;bottom:244px;width:170px;padding:6px;font-size:13px;z-index:10}
+#tinfo .tn{font-weight:bold;margin-bottom:3px}
+#tinfo .bar{height:14px}
+#tinfo .bar span{font-size:11px;line-height:10px}
+/* ---------- shop ---------- */
+#shop{position:fixed;right:8px;top:70px;width:330px;z-index:20;padding:10px}
+#shop h3{margin:0 0 8px;color:#ffd54f;display:flex;justify-content:space-between;align-items:center}
+.sitem{display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.35);border:2px solid #000;padding:6px;margin-bottom:6px;cursor:pointer}
+.sitem:hover{background:rgba(255,213,79,.12)}
+.sitem.cant{opacity:.5}
+.sitem .ico{width:44px;height:44px;font-size:22px}
+.sitem .nm{font-weight:bold}
+.sitem .cs{color:#ffd54f;font-size:13px}
+.sitem .ds{font-size:12px;color:#bbb;line-height:1.4}
+/* ---------- tooltip ---------- */
+#tip{position:fixed;z-index:60;max-width:300px;background:rgba(8,10,14,.95);border:3px solid #000;box-shadow:inset 0 0 0 2px #555;padding:8px 10px;font-size:13px;line-height:1.5;pointer-events:none}
+#tip .tt{font-size:16px;font-weight:bold;color:#ffd54f}
+#tip .tm{color:#64b5f6}#tip .tc{color:#bbb}
+/* ---------- death / end ---------- */
+#death{position:fixed;inset:0;z-index:15;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 30%,rgba(80,0,0,.55));display:flex;align-items:flex-start;justify-content:center}
+#death div{margin-top:120px;font-size:30px;font-weight:bold;color:#ff5252;text-shadow:3px 3px 0 #000;background:rgba(0,0,0,.6);padding:10px 30px;border:3px solid #000}
+#death{filter:none}
+#end{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.75);display:flex;flex-direction:column;align-items:center;justify-content:center}
+#end h1{font-size:80px;margin:0;letter-spacing:12px;text-shadow:6px 6px 0 #000}
+#end .stats{font-size:18px;line-height:1.9;margin:20px;background:rgba(0,0,0,.5);border:3px solid #000;padding:14px 30px;text-align:center}
+#helpBtn{position:fixed;top:0;left:0;z-index:11}
+#help{position:fixed;left:10px;top:44px;z-index:30;width:360px;padding:12px;font-size:13px;line-height:1.75}
+#help b{color:#ffd54f;display:inline-block;min-width:110px}
+@media (max-width:1250px){#hud{transform:scale(.82)}}
+@media (max-width:1050px){#hud{transform:scale(.7)}}
+#pause{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);font-size:40px;font-weight:bold;z-index:40;text-shadow:3px 3px 0 #000}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="ov"></canvas>
+
+<div id="select">
+  <h1>方块刀塔</h1>
+  <div class="sub">体素风 DOTA 单人原型 · 选择你的英雄，摧毁夜魇遗迹！</div>
+  <div id="cards"></div>
+  <div id="ctrlHelp"></div>
+</div>
+
+<div id="game" class="hidden">
+  <div id="top">
+    <div><span class="rad">天辉</span><span>摧毁 <b id="radScore">0</b></span></div>
+    <div id="timer">00:00</div>
+    <div><span>摧毁 <b id="direScore">0</b></span><span class="dire">夜魇</span></div>
+  </div>
+  <div id="kda">击杀/死亡/助攻 <b id="kdaTxt">0 / 0 / 0</b><br>正补/反补 <b id="lhTxt">0 / 0</b></div>
+  <button id="helpBtn" class="mcbtn">操作说明 (F1)</button>
+  <div id="help" class="panel hidden"></div>
+  <div id="msgs"></div>
+  <div id="errmsg"></div>
+
+  <div id="mmBox" class="panel"><canvas id="minimap" width="220" height="220"></canvas><span id="fps"></span></div>
+  <div id="tinfo" class="panel hidden"><div class="tn" id="tName"></div><div class="bar"><div class="fill" id="tHpFill" style="background:#c33"></div><span id="tHp"></span></div><div id="tExtra" style="font-size:12px;color:#bbb;margin-top:3px"></div></div>
+
+  <div id="hud">
+    <div id="pbox" class="panel"><img id="portrait" class="px"><div id="lvl">1</div><div id="xpbar"><div id="xpfill"></div></div><div id="heroName"></div></div>
+    <div id="stats" class="panel"></div>
+    <div id="mid" class="panel">
+      <div id="buffs"></div>
+      <div id="skills"></div>
+      <div class="bar" id="hpbar"><div class="fill"></div><span></span><em></em></div>
+      <div class="bar" id="mpbar"><div class="fill"></div><span></span><em></em></div>
+    </div>
+    <div id="ibox" class="panel">
+      <div id="items"></div>
+      <div id="goldRow"><span id="gold">600</span><button class="mcbtn" id="shopBtn">商店 (B)</button></div>
+    </div>
+  </div>
+
+  <div id="shop" class="panel hidden"><h3><span>商店</span><button class="mcbtn" id="shopClose">关闭</button></h3><div id="shopList"></div><div style="font-size:12px;color:#999">提示：左键点击购买，物品进入空闲格子。原型中可在任意位置购买。</div></div>
+  <div id="death" class="hidden"><div id="deathTxt">你已阵亡</div></div>
+  <div id="pause" class="hidden">已暂停 (P)</div>
+</div>
+<div id="tip" class="hidden"></div>
+<div id="end" class="hidden"><h1 id="endTitle">胜利</h1><div class="stats" id="endStats"></div><button class="mcbtn" style="font-size:22px;padding:10px 30px" onclick="location.reload()">再来一局</button></div>
+
+<script>/*__THREE__*/</script>
+<script>/*__GAME__*/</script>
+</body>
+</html>

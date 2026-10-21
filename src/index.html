@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>方块刀塔 · Voxel DOTA 原型</title>
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="ov"></canvas>
+
+<div id="select">
+  <h1>方块刀塔</h1>
+  <div class="sub">体素风 DOTA 单人原型 · 选择你的英雄，摧毁夜魇遗迹！</div>
+  <div id="cards"></div>
+  <div id="ctrlHelp"></div>
+</div>
+
+<div id="lobby" class="hidden"></div>
+<div id="netInv" class="panel hidden"></div>
+
+<div id="game" class="hidden">
+  <div id="top">
+    <div><span class="rad">天辉</span><span>摧毁 <b id="radScore">0</b></span></div>
+    <div id="timer">00:00</div>
+    <div><span>摧毁 <b id="direScore">0</b></span><span class="dire">夜魇</span></div>
+  </div>
+  <div id="kda">击杀/死亡/助攻 <b id="kdaTxt">0 / 0 / 0</b><br>正补/反补 <b id="lhTxt">0 / 0</b></div>
+  <button id="helpBtn" class="mcbtn">操作说明 (F9)</button><button id="optBtn" class="mcbtn">⚙ 设置 (F10)</button><button id="fsBtn" class="mcbtn" title="全屏 (F / Alt+Enter)"></button>
+  <div id="help" class="panel hidden"></div>
+  <div id="msgs"></div>
+  <div id="errmsg"></div>
+
+  <div id="courierRow" class="panel"><span id="courierSt">信使</span><button class="cbtn" id="cDeliver" title="信使：收取储藏处物品并送到英雄身边 (F3)">运送 F3</button><button class="cbtn" id="cHome" title="信使：返回基地">回家</button><button class="cbtn" id="cSecret" title="信使：前往己方神秘商店，在那里购买的「秘」物品放入信使背包">神秘</button></div>
+  <div id="mmBox" class="panel"><canvas id="minimap" width="220" height="220"></canvas><span id="fps"></span></div>
+  <div id="tinfo" class="panel hidden"><div class="tn" id="tName"></div><div class="bar"><div class="fill" id="tHpFill" style="background:#c33"></div><span id="tHp"></span></div><div id="tExtra" style="font-size:12px;color:#bbb;margin-top:3px"></div></div>
+
+  <div id="hud">
+    <div id="pbox" class="panel"><img id="portrait" class="px"><div id="lvl">1</div><div id="xpbar"><div id="xpfill"></div></div><div id="heroName"></div></div>
+    <div id="stats" class="panel"></div>
+    <div id="mid" class="panel">
+      <div id="buffs"></div>
+      <div id="skills"></div>
+      <div class="bar" id="hpbar"><div class="fill"></div><span></span><em></em></div>
+      <div class="bar" id="mpbar"><div class="fill"></div><span></span><em></em></div>
+    </div>
+    <div id="ibox" class="panel">
+      <div id="items"></div>
+      <div id="goldRow"><span id="gold">600</span><button class="mcbtn" id="shopBtn">商店 (B)<span id="stashBadge"></span></button></div>
+    </div>
+  </div>
+
+  <div id="shop" class="panel hidden"><h3><span>商店</span><button class="mcbtn" id="shopClose">关闭</button></h3><div id="shopHint"></div><div id="shopTop"><div id="shopTabs"></div><input id="shopSearch" type="text" placeholder="搜索物品（名称 / 英文 / 简称）" autocomplete="off" spellcheck="false"></div><div id="shopList"></div><div id="shopEmpty" class="hidden">没有匹配的物品</div><div id="stashRow"></div><div id="shopFoot">左键点击购买；鼠标悬停查看配方树。只能在己方基地内直接取得/出售物品。</div></div>
+  <div id="death" class="hidden"><div id="deathTxt">你已阵亡</div></div>
+  <div id="announce"></div>
+  <div id="pause" class="hidden">已暂停 (P)</div>
+  <div id="netHud" class="panel hidden"></div>
+  <div id="chatLog"></div>
+  <div id="chatBox" class="hidden"><span id="chatMode">队伍</span><input id="chatIn" type="text" maxlength="120" autocomplete="off" spellcheck="false" placeholder="Enter 发送 · Esc 取消 · Tab 切换队伍/所有人"></div>
+</div>
+<div id="tip" class="hidden"></div>
+<div id="options" class="panel hidden"></div>
+<div id="vcursor" class="hidden" data-kind="arrow"></div>
+<div id="netEnd" class="hidden"></div>
+<div id="netFF" class="hidden"></div>
+<div id="end" class="hidden"><h1 id="endTitle">胜利</h1><div class="stats" id="endStats"></div><button class="mcbtn" style="font-size:22px;padding:10px 30px" onclick="location.reload()">再来一局</button></div>
+
+<script>/*__THREE__*/</script>
+<script>/*__GAME__*/</script>
+</body>
+</html>
