@@ -64,7 +64,7 @@ module.exports = ({ test, boot, assert }) => {
     // a real right-click on the client's 3D view (ui/input.js handleRight → wrapped issueOrder → LAN command)
     const tgt = { x: 330, y: 150 };   // ground above the HUD, near the camera focus
     await c.mouse.click(tgt.x, tgt.y, { button: 'right' });
-    await c.waitForFunction(() => GameAPI.NET.stats.cmds >= 1);
+    await c.waitForFunction(() => GameAPI.NET.stats.cmds >= 1).catch(async e => { throw new Error('right-click cmd: ' + JSON.stringify(await c.evaluate(() => [GameAPI.NET.stats, GameAPI.G.player.order, document.elementFromPoint(330, 150)?.id || document.elementFromPoint(330, 150)?.tagName]))); });
     // purchase through the real shop UI (B → click 治疗药膏)
     await c.keyboard.press('b'); await c.click('.stab[data-tab="consumable"]'); await c.click('.sitem[data-id="salve"]'); await c.keyboard.press('Escape');
     await waitTick(c, 150);
@@ -72,11 +72,11 @@ module.exports = ({ test, boot, assert }) => {
     const s1 = await h.evaluate(() => GameAPI.netHeroes().find(x => x.hero === 'axe'));
     // attack order on a unit (unit reference travels as an id)
     const att = await c.evaluate(() => { const P = GameAPI.G.player, e = GameAPI.units.filter(u => u.team === 0 && !u.dead && u.kind === 'melee').sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0]; GameAPI.netOrder({ type: 'attack', target: e }); return e.id; });
-    await h.waitForFunction(id => { const a = GameAPI.G.heroes.find(x => x.def.id === 'axe'); return a.order.type === 'attack' && a.order.target && a.order.target.id === id; }, att);
+    await h.waitForFunction(id => { const o = GameAPI.LS.lastOrd, a = GameAPI.G.heroes.find(x => x.def.id === 'axe'); return o && o.u === a.id && o.type === 'attack' && o.t === id; }, att).catch(async e => { throw new Error('attack order: ' + att + ' ' + JSON.stringify(await h.evaluate(() => GameAPI.LS.lastOrd))); });   // the creep may die quickly, so check the executed order record
     // chat: team (Enter) from the client must not reach the enemy host; all chat (Shift+Enter) must
     await c.keyboard.press('Enter'); await c.keyboard.type('team secret'); await c.keyboard.press('Enter');
     await c.keyboard.press('Shift+Enter'); await c.keyboard.type('gg all'); await c.keyboard.press('Enter');
-    await h.waitForFunction(() => document.getElementById('chatLog').textContent.includes('gg all'));
+    await h.waitForFunction(() => document.getElementById('chatLog').textContent.includes('gg all')).catch(async e => { throw new Error('chat: ' + JSON.stringify(await h.evaluate(() => document.getElementById('chatLog').textContent)) + JSON.stringify(await c.evaluate(() => document.getElementById('chatLog').textContent))); });
     const chat = await h.evaluate(() => document.getElementById('chatLog').textContent);
     // client cannot pause; host pause stops everyone
     await c.keyboard.press('p'); const cErr = await c.evaluate(() => document.getElementById('errmsg').textContent);

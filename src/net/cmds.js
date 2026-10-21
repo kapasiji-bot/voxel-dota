@@ -40,7 +40,7 @@ function execCmd(c) {
     case 'o': {
       const u = unitById(c.u); if (!netOwns(H, u)) return;
       const o = netDes(c.o); if (!o || ('target' in c.o && !o.target) || ('drop' in c.o && !o.drop)) return;
-      O.issueOrder(u, o); break;
+      O.issueOrder(u, o); LS.lastOrd = { u: u.id, type: u.order.type, t: u.order.target ? u.order.target.id : 0 }; break;
     }
     case 'use': say(O.useItem(H, c.s | 0, netDes(c.t))); break;
     case 'buy': if (ITEM_DEFS[c.id]) O.buyItem(c.id, H); break;

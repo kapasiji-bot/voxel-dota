@@ -333,7 +333,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = 'afe1c88212';
+const BUILD_ID = '38f75946f3';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -6502,7 +6502,7 @@ function execCmd(c) {
     case 'o': {
       const u = unitById(c.u); if (!netOwns(H, u)) return;
       const o = netDes(c.o); if (!o || ('target' in c.o && !o.target) || ('drop' in c.o && !o.drop)) return;
-      O.issueOrder(u, o); break;
+      O.issueOrder(u, o); LS.lastOrd = { u: u.id, type: u.order.type, t: u.order.target ? u.order.target.id : 0 }; break;
     }
     case 'use': say(O.useItem(H, c.s | 0, netDes(c.t))); break;
     case 'buy': if (ITEM_DEFS[c.id]) O.buyItem(c.id, H); break;
