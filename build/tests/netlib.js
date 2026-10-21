@@ -1,7 +1,7 @@
 // build/tests/netlib.js — helpers for the B11 LAN tests: N pages in ONE browser context (BroadcastChannel needs a shared
 // storage partition) running ?netfake=1, the real lobby UI driven by clicks / pasted codes.
 const path = require('path');
-const NURL = 'file://' + path.resolve(__dirname, '../../voxel-dota.html') + '?debug=1&netfake=1';
+const NURL = 'file://' + path.resolve(__dirname, '../../voxel-dota.html') + (process.env.NET_NODEBUG ? '?netfake=1' : '?debug=1&netfake=1');   // shots: no DEBUG badge
 async function openPages(browser, n, errors, size = { width: 1280, height: 720 }, render = false) {
   const ctx = await browser.newContext({ viewport: size }), pages = [];
   for (let i = 0; i < n; i++) {
