@@ -2,13 +2,14 @@
 // storage partition) running ?netfake=1, the real lobby UI driven by clicks / pasted codes.
 const path = require('path');
 const NURL = 'file://' + path.resolve(__dirname, '../../voxel-dota.html') + '?debug=1&netfake=1';
-async function openPages(browser, n, errors, size = { width: 1280, height: 720 }) {
+async function openPages(browser, n, errors, size = { width: 1280, height: 720 }, render = false) {
   const ctx = await browser.newContext({ viewport: size }), pages = [];
   for (let i = 0; i < n; i++) {
     const p = await ctx.newPage(); p._tag = i ? 'c' + i : 'host';
     p.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errors.push(p._tag + ' ' + m.type() + ': ' + m.text()); });
     p.on('pageerror', e => errors.push(p._tag + ' pageerror: ' + e.message));
     await p.goto(NURL); await p.waitForFunction(() => window.GameAPI && document.querySelector('.card') && document.getElementById('mtHost'));
+    if (!render) await p.evaluate(() => GameAPI.netNoRender(true));
     pages.push(p);
   }
   return { ctx, pages };

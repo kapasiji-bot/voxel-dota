@@ -333,7 +333,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = 'b34f1e8032';
+const BUILD_ID = 'afe1c88212';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -6300,7 +6300,7 @@ function copyText(text, btn) {
   const fallback = () => { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove(); done(ok); };
   if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(() => done(true), fallback); else fallback();
 }
-function invOpen(show = true) { const p = $('netInv'); p.classList.toggle('hidden', !show); if (show && !$('invList').children.length) invNew(); }
+function invOpen(show = true) { const p = $('netInv'); p.classList.toggle('hidden', !show); if (show && !Object.values(NET.invites).some(ch => !ch.answered && !ch.closed) && !$('invList').querySelector('.inv:not(.done):not(.bad) .cp[disabled]')) invNew(); }   // always offer one unused code
 async function invNew() {
   const id = NET.nextInv++, card = document.createElement('div'); card.className = 'inv'; card.dataset.id = id;
   card.innerHTML = `<div class="invT">邀请 #${id} <span class="st">正在生成邀请码…</span></div>
@@ -6662,7 +6662,7 @@ NET_H.pause = (_, m) => netSetPause(m.on);
 //    joiners send {t:'h', n, h}; the host compares with its own hash of the same tick and announces a mismatch.
 //  • The host pings every joiner once a second ({t:'pi'} → {t:'po'}), shares the table ({t:'pings'}) every 2 s.
 //  • A chan silent for NET_DEAD ms counts as disconnected (host: player dropped → bot; joiner: host gone).
-const NET_DEAD = 9000;
+const NET_DEAD = 15000;   // a slow machine's first match frame (shader compile) must not count as a disconnect
 function stateHash() {
   let h = 2166136261 >>> 0;
   const mix = v => { h = Math.imul(h ^ (v | 0), 16777619) >>> 0; };
@@ -6869,6 +6869,8 @@ Object.assign(GameAPI, {
     }, 1500);
   },
   netBuy(id) { return buyItem(id); }, netUse(slot, t) { return useItem(G.player, slot, t); },
+  // tests with several pages: skip the WebGL draw (software GL in headless Chrome is the bottleneck); sim, HUD and input still run
+  netNoRender(on = true) { if (!NET._render) NET._render = renderer.render; renderer.render = on ? function () {} : NET._render; },
   netSpeed(s) { NET.speed = s; if (NET.role === 'host') netBroadcast({ t: 'speed', s }); },
   // real (not render-interpolated) unit state: [id, x, z, hp]
   netUnits(filter) { lsRestore(); return units.filter(u => !u.dead && (!filter || filter(u))).map(u => [u.id, +u.x.toFixed(3), +u.z.toFixed(3), +u.hp.toFixed(2)]); },

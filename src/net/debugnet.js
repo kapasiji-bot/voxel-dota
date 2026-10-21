@@ -16,6 +16,8 @@ Object.assign(GameAPI, {
     }, 1500);
   },
   netBuy(id) { return buyItem(id); }, netUse(slot, t) { return useItem(G.player, slot, t); },
+  // tests with several pages: skip the WebGL draw (software GL in headless Chrome is the bottleneck); sim, HUD and input still run
+  netNoRender(on = true) { if (!NET._render) NET._render = renderer.render; renderer.render = on ? function () {} : NET._render; },
   netSpeed(s) { NET.speed = s; if (NET.role === 'host') netBroadcast({ t: 'speed', s }); },
   // real (not render-interpolated) unit state: [id, x, z, hp]
   netUnits(filter) { lsRestore(); return units.filter(u => !u.dead && (!filter || filter(u))).map(u => [u.id, +u.x.toFixed(3), +u.z.toFixed(3), +u.hp.toFixed(2)]); },

@@ -3,7 +3,7 @@
 //    joiners send {t:'h', n, h}; the host compares with its own hash of the same tick and announces a mismatch.
 //  • The host pings every joiner once a second ({t:'pi'} → {t:'po'}), shares the table ({t:'pings'}) every 2 s.
 //  • A chan silent for NET_DEAD ms counts as disconnected (host: player dropped → bot; joiner: host gone).
-const NET_DEAD = 9000;
+const NET_DEAD = 15000;   // a slow machine's first match frame (shader compile) must not count as a disconnect
 function stateHash() {
   let h = 2166136261 >>> 0;
   const mix = v => { h = Math.imul(h ^ (v | 0), 16777619) >>> 0; };

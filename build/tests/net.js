@@ -118,7 +118,7 @@ module.exports = ({ test, boot, assert }) => {
     const offer = await h.$eval('#invList .inv .code', e => e.value);
     await r.fill('#jOffer', offer); await r.click('#jGo'); await r.waitForFunction(() => document.getElementById('jAns').value.startsWith('VD1A'));
     await h.fill('#invList .inv .ans', await r.$eval('#jAns', e => e.value)); await h.click('#invList .inv .ok');
-    await r.waitForFunction(() => GameAPI.G.started && GameAPI.NET.started, null, { timeout: 20000 });
+    await r.waitForFunction(() => GameAPI.G.started && GameAPI.NET.started, null, { timeout: 30000 }).catch(async e => { throw new Error('rejoin: ' + JSON.stringify(await r.evaluate(() => [GameAPI.netInfo(), document.getElementById('jStatus').textContent, GameAPI.NET.byeWhy]).catch(x => x.message)) + ' host: ' + JSON.stringify(await h.evaluate(() => [GameAPI.netInfo(), document.getElementById('invList').textContent.slice(0, 200)]))); });
     if (process.env.NETDBG) console.log('  … rejoined, ff');
     const ffSeen = await r.evaluate(() => GameAPI.NET.ff || GameAPI.LS.n > 0);
     await r.waitForFunction(() => !GameAPI.NET.ff, null, { timeout: 120000 });

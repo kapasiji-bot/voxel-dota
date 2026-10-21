@@ -6,7 +6,7 @@ function copyText(text, btn) {
   const fallback = () => { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove(); done(ok); };
   if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(() => done(true), fallback); else fallback();
 }
-function invOpen(show = true) { const p = $('netInv'); p.classList.toggle('hidden', !show); if (show && !$('invList').children.length) invNew(); }
+function invOpen(show = true) { const p = $('netInv'); p.classList.toggle('hidden', !show); if (show && !Object.values(NET.invites).some(ch => !ch.answered && !ch.closed) && !$('invList').querySelector('.inv:not(.done):not(.bad) .cp[disabled]')) invNew(); }   // always offer one unused code
 async function invNew() {
   const id = NET.nextInv++, card = document.createElement('div'); card.className = 'inv'; card.dataset.id = id;
   card.innerHTML = `<div class="invT">邀请 #${id} <span class="st">正在生成邀请码…</span></div>
