@@ -39,9 +39,9 @@ function refreshHero(h) {
   h.atkSpeedMult = (100 + h.agi + (P.as || 0)) / 100; h.atkInterval = s.bat / h.atkSpeedMult;
   h.speed = Math.max(1, (s.speed + (P.ms || 0)) * (1 + (P.msPct || 0)));
   h.hpRegen = s.hpRegen + h.str * 0.1 + (P.hpRegen || 0); h.manaRegen = s.manaRegen + h.int * 0.05 + (P.manaRegen || 0);
-  h.dmgTakenPct = P.dmgTakenPct || 0;
+  h.dmgTakenPct = P.dmgTakenPct || 0; if (!h.form) h.range = s.range + (P.range || 0); h.block = P.block || 0;   // form (True Form) owns melee range
   h.magicRes = 1 - 0.75 * (1 - (P.magicRes || 0)); h.missChance = P.miss || 0; h.evasion = Math.min(0.9, P.evasion || 0); h.blurR = P.blur || 0;   // base 25% magic resistance
-  h.trueStrike = !!P.trueStrike; applyScepter(h);   // B7: Monkey King Bar; Aghanim's Scepter swaps upgraded ability defs (abilities/scepter.js)
+  h.trueStrike = !!P.trueStrike; applyScepter(h); if (typeof applyShard === 'function') applyShard(h);   // B7 scepter + B12 shard
 }
 const skillPoints = h => h.level - h.abilities.reduce((a, s) => a + s.lvl, 0);
 const maxAbilityLevel = d => d.ult ? 3 : 4;
@@ -89,7 +89,7 @@ function updateHeroTimers(h, dt) {
   for (const it of h.items) if (it && it.cd > 0) it.cd = Math.max(0, it.cd - dt);
   if (h.icd) for (const it of h.items) if (it && it.def.heroCd) it.cd = Math.max(0, (h.icd[it.id] || 0) - G.time);
   if (h.dead) {
-    h.respawn -= dt; if (h === G.player) setT($('deathTxt'), `你已阵亡 —— ${Math.ceil(h.respawn)} 秒后复活`);
+    h.respawn -= dt; if (h === G.player && typeof updateDeathUI === 'function') updateDeathUI(h); else if (h === G.player) setT($('deathTxt'), `你已阵亡 —— ${Math.ceil(h.respawn)} 秒后复活`);
     if (h.respawn <= 0) respawnHero(h);
     return;
   }

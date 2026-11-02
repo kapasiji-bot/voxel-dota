@@ -56,7 +56,7 @@ function attackLand(src, tgt, attackId, orb) {
   const info = { dmg: rnd(src.dmgMin, src.dmgMax), crit: 0, attackId };
   if (src.abilities) fireHeroHook(src, 'modifyAttack', tgt, info);   // crits (Jinada), backstab, ...
   if (src.items && !tgt.isBuilding) fireItemHook(src, 'modifyAttack', tgt, info);   // item crits (Daedalus) — applyCrit keeps the highest
-  if (tgt.items && !tgt.isIllusion && !tgt.proj && Math.random() < 0.5) { const bl = tgt.items.reduce((a, it) => Math.max(a, (it && it.def.block) || 0), 0); if (bl) info.dmg = Math.max(0, info.dmg - bl); }   // Vanguard damage block
+  if (!tgt.isIllusion && !tgt.proj && Math.random() < 0.5) { const ib = tgt.items ? tgt.items.reduce((a, it) => Math.max(a, (it && it.def.block) || 0), 0) : 0; const bl = Math.max(tgt.block || 0, ib); if (bl) info.dmg = Math.max(0, info.dmg - bl); }   // Vanguard / Kraken Shell damage block
   if (tgt.mods.length) for (const m of tgt.mods) if (m.data.atkRed) info.dmg *= 1 - m.data.atkRed;   // modifier data.atkRed: less attack damage taken (Frost Shield)
   const dealt = dealDamage(src, tgt, info.dmg, 'phys', { attackId, big: info.crit > 0, silent: info.crit > 0 });
   if (info.crit > 0 && dealt > 0) {   // crit number: red, big; huge + punch/shake + blood for crits ≥ 2.5× (Coup de Grace)
@@ -66,6 +66,7 @@ function attackLand(src, tgt, attackId, orb) {
   if (orb && !tgt.dead) orbLand(src, orb, tgt, dealt);
   if (src.onHit && dealt > 0) src.onHit(src, tgt, dealt);   // neutral / Roshan passives (ai/neutral.js, entities/roshan.js)
   if (src.abilities && dealt > 0) { fireHeroHook(src, 'onAttackLand', tgt, dealt); if (src.items) fireItemHook(src, 'onAttackLand', tgt, dealt); if (src.isSummon) summonSplit(src); }   // e.g. cleave (abilities, Battle Fury)
+  if (src.mods.length && dealt > 0) for (const m of src.mods.slice()) if (m.def.onAttackLand) m.def.onAttackLand(src, m, tgt, dealt);   // aura lifesteal etc.
   if (!src.proj) for (let i = 0; i < 3; i++) spawnP(tgt.x + rnd(-0.3, 0.3), tgt.height * 0.5, tgt.z + rnd(-0.3, 0.3), rnd(-2, 2), rnd(1, 3), rnd(-2, 2), 0.3, 0.15, src.isHero ? '#ffffff' : '#ddd', -10);
   else if (src.isHero) burst(tgt.x, tgt.height * 0.5, tgt.z, 5, ['#ffab40', '#ff6d00', '#ffd180'], 3, 0.35, 0.2, 1, 0);
   if (tgt.abilities && !tgt.dead) fireHeroHook(tgt, 'onAttacked', src);

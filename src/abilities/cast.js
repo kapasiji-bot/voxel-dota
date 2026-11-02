@@ -86,7 +86,9 @@ function executeCast(h, ab, target) {
   ab.cd = ab.cdMax = lvVal(ab.def, 'cd', ab.lvl) || 0;
   emit('cast', { unit: h.id, ability: ab.def.id, slot: h.abilities.indexOf(ab), target: target && target.id ? target.id : 0, x: target ? target.x : null, z: target ? target.z : null });
   if (!ab.def.keepInvis) breakInvis(h, 'cast', target);
-  // spell reflect (Counterspell): an enemy unit-target spell is blocked and bounced back at its caster
+  // B12 Linken's Sphere: block one unit-target spell (no bounce). Lotus / Counterspell reflect still bounce.
+  if (target && target.id && target.team !== h.team && typeof trySpellBlock === 'function' && trySpellBlock(target, h, ab.def.id)) { afterCast(h, ab); return true; }
+  // spell reflect (Counterspell / Lotus Orb): an enemy unit-target spell is blocked and bounced back at its caster
   if (target && target.id && target.team !== h.team && hasState(target, 'reflect')) {
     emit('spellReflect', { unit: target.id, caster: h.id, ability: ab.def.id });
     AB.ringP(target.x, target.z, 1.4, 18, ['#69f0ae', '#b9f6ca'], 0.4, 0.25, 1.5); AB.float(target, '反射！', '#69f0ae', 18, 1);

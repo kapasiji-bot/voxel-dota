@@ -38,6 +38,7 @@ function killUnit(u, killer) {
   if (u.dead) return;
   if (u.isHero && G.god && u === G.player) { u.hp = 1; return; }
   if (u.isHero && !u.isIllusion && aegisSave(u)) return;   // entities/drops.js: Aegis reincarnation (no death, no bounty)
+  if (u.isHero && !u.isIllusion && skillReincarnate(u)) return;   // abilities/reincarnate.js: Wraith King etc.
   interruptChannel(u, 'death');
   u.dead = true; u.target = null; u.atk = null; u.casting = null;
   for (const m of u.mods.slice()) if (m.def.onDeath) m.def.onDeath(u, m, killer);   // e.g. Track bounty

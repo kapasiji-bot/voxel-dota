@@ -18,7 +18,7 @@ registerHero({
     armRGlow: [[0, -1.0, 0.31, 0.3, 0.3, 0.04, '#e040fb']],
   }),
   abilities: [
-    { id: 'spike', key: 'Q', name: '穿刺', icon: '刺', color: '#8d6e63', target: 'direction', castPoint: 0.3,
+    { id: 'spike', shard: { desc: '穿刺伤害 +40。', values: { dmg: [120, 180, 240, 300] } }, key: 'Q', name: '穿刺', icon: '刺', color: '#8d6e63', target: 'direction', castPoint: 0.3,
       mana: [100, 120, 140, 160], cd: [12, 12, 12, 12], values: { dmg: [80, 140, 200, 260], stun: [1.4, 1.8, 2.2, 2.6], len: 16, w0: 3, w1: 3, speed: 30, air: 0.5 },
       text: L => `从地面召唤一排尖刺，长度 ${L.len} 码，将沿途敌人击飞 ${L.air} 秒，造成 ${L.dmg} 点魔法伤害并共眩晕 ${L.stun} 秒。`,
       onCast(c, pt) {

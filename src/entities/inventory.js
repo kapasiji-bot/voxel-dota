@@ -11,7 +11,7 @@ function giveItem(h, id, n = 1) {
   const D = ITEM_DEFS[id]; if (!D) return '未知物品';
   if (D.stack) { const it = h.items.find(i => i && i.id === id); if (it) { it.charges += n; return null; } }
   const slot = h.items.indexOf(null); if (slot < 0) return '物品栏已满';
-  h.items[slot] = newItem(h, id, n); refreshHero(h);
+  h.items[slot] = newItem(h, id, n); if (h.isHero) refreshHero(h); else refreshUnit(h);
   return null;
 }
 const countItem = (h, id) => h.items.reduce((a, i) => a + (i && i.id === id ? (i.def.stack ? i.charges : 1) : 0), 0) + (h.stash || []).reduce((a, s) => a + (s.id === id ? s.n : 0), 0);
@@ -58,7 +58,7 @@ function sellItem(slot, h = G.player) {
   const it = h.items[slot]; if (!it) return '空物品栏';
   if (it.def.noSell) { if (h === G.player) err('该物品无法出售'); return '无法出售'; }
   if (!atShop(h)) { if (h === G.player) err('只能在基地商店出售物品'); return '不在商店'; }
-  const v = Math.floor(it.def.cost / 2 * (it.def.stack ? it.charges : 1)); h.gold += v; h.items[slot] = null; refreshHero(h);
+  const v = Math.floor(it.def.cost / 2 * (it.def.stack ? it.charges : 1)); (h.isHero ? h : h.owner).gold += v; h.items[slot] = null; if (h.isHero) refreshHero(h); else refreshUnit(h);
   emit('sell', { unit: h.id, item: it.id, gold: v });
   if (h === G.player) msg(`出售 ${it.def.name}，获得 ${v} 金`, '#ffd54f');
   return null;
@@ -98,10 +98,29 @@ function useItem(h, slot, target) {
     return null;
   }
   if (!D.keepInvis) breakInvis(h, 'cast');
+  // B12 Linken's: unit-target items (Dagon, Scythe, …) are blocked like spells
+  if (A.target === 'unit' && target && target.id && typeof trySpellBlock === 'function' && trySpellBlock(target, h, D.id)) {
+    if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + (A.cd || 0);
+    if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = A.cd || 0; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = A.cd || 0;
+    return null;
+  }
   if (A.onUse({ caster: h, item: it, def: D }, target) === false) return '无法使用';
   if (A.mana) h.mana -= A.mana;
   emit('itemUse', { unit: h.id, item: D.id, slot, target: target && target.id ? target.id : 0 });
   if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + (A.cd || 0);
   if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = A.cd || 0; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = A.cd || 0;
+  return null;
+}
+// B12: move one inventory item to another unit that has an items array (Spirit Bear). Same team / ownership only.
+function transferItem(from, slot, to) {
+  if (!from || !to || !from.items || !to.items || !to.invSlots) return '无法转移';
+  const it = from.items[slot]; if (!it) return '空物品栏';
+  if (it.def.noSell || it.id === 'aegis' || it.id === 'cheese') return '该物品无法转移';
+  const dst = to.items.indexOf(null); if (dst < 0) return '目标物品栏已满';
+  to.items[dst] = it; from.items[slot] = null;
+  if (from.isHero) refreshHero(from); else refreshUnit(from);
+  refreshUnit(to);
+  emit('transfer', { from: from.id, to: to.id, item: it.id });
+  if (from === G.player || to.owner === G.player) msg(`将 ${it.def.name} 交给 ${to.name}`, '#ffd54f');
   return null;
 }

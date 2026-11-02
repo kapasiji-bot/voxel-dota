@@ -22,7 +22,7 @@ registerHero({
       text: L => `释放一道在敌人之间跳跃的闪电，最多命中 ${L.jumps} 个单位，每个造成 ${L.dmg} 点魔法伤害（跳跃范围 ${L.radius} 码）。`,
       onCast(c, t) { const h = c.caster; AB.chain({ caster: h, first: t, jumps: c.v('jumps'), radius: c.v('radius'), delay: 0.1, ability: 'arc', color: '#80d8ff',
         onHit(u) { AB.damage(h, u, c.v('dmg'), 'magic', 'arc'); } }); } },
-    { id: 'bolt', key: 'W', name: '雷击', icon: '雷', color: '#0288d1', target: 'unit', range: 14, castPoint: 0.3,
+    { id: 'bolt', shard: { desc: '雷击伤害 +50。', values: { dmg: [170, 235, 300, 365] } }, key: 'W', name: '雷击', icon: '雷', color: '#0288d1', target: 'unit', range: 14, castPoint: 0.3,
       mana: [100, 115, 130, 145], cd: [6, 6, 6, 6], values: { dmg: [120, 185, 250, 315], stun: 0.35 },
       text: L => `召唤雷电劈向一名敌人，造成 ${L.dmg} 点魔法伤害并使其眩晕 ${L.stun} 秒。`,
       onCast(c, t) { const h = c.caster; AB.skyBolt(t, '#81d4fa'); AB.damage(h, t, c.v('dmg'), 'magic', 'bolt', { big: true }); AB.stun(t, h, c.v('stun')); } },

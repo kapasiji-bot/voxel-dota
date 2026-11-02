@@ -20,8 +20,17 @@ function gatherProps(u) { for (const k in _props) _props[k] = 0; return modProps
 // recompute effective stats for non-hero units (heroes: refreshHero in entities/hero.js)
 function refreshUnit(u) {
   if (u.isHero) return refreshHero(u);
-  if (!u.mods.length && !u._modded) return;
+  const hasItems = !!(u.items && u.items.some(Boolean));
+  if (!u.mods.length && !u._modded && !hasItems) return;
   const P = gatherProps(u), b = u.base;
+  if (hasItems) {   // B12 Spirit Bear inventory etc.
+    const seen = {};
+    for (const it of u.items) if (it) {
+      const p = it.def.props; if (!p) continue;
+      if (it.def.unique) { const g = it.def.uniqueGroup || it.def.id; if (seen[g]) continue; seen[g] = 1; }
+      for (const k in p) P[k] = (P[k] || 0) + p[k];
+    }
+  }
   u.armor = b.armor + (P.armor || 0);
   u.speed = Math.max(0.5, b.speed * (1 + (P.msPct || 0)) + (P.ms || 0));
   u.dmgMin = b.dmgMin + (P.dmg || 0); u.dmgMax = b.dmgMax + (P.dmg || 0);

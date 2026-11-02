@@ -65,13 +65,28 @@ function updateHUD() {
     e.pips.forEach((p, k) => { const on = k < sk.lvl; if (p._on !== on) { p._on = on; p.classList.toggle('on', on); } });
     e.learn.classList.toggle('hidden', !(pts > 0 && U === P && canLearn(P, i)));
   });
-  P.items.forEach((it, i) => {
+  const invU = (U && U.items) ? U : P;   // B12: Spirit Bear (and other inv summons) show their own items
+  if (hudEl.invU !== invU || (hudEl.items && hudEl.items.length !== invU.items.length)) {
+    hudEl.invU = invU; const ib = $('items'); ib.innerHTML = ''; hudEl.items = [];
+    for (let i = 0; i < invU.items.length; i++) {
+      const el = document.createElement('div'); el.className = 'slot';
+      el.innerHTML = `<div class="icw" style="width:100%;height:100%"></div><div class="cdov"></div><div class="cdtxt" style="font-size:16px"></div><div class="key">${i + 1}</div><div class="chg"></div>`;
+      el.addEventListener('mousedown', e => { e.stopPropagation(); if (e.button === 0) pressItem(i); else if (e.button === 2) {
+        if (invU !== P && invU.owner === P) { /* right-click on bear item: ignore sell */ hideTip(); }
+        else { sellItem(i); hideTip(); }
+      } });
+      bindTip(el, () => invU.items[i] ? itemTip(invU.items[i].id, true) : '<div class="tc">空物品栏</div>');
+      ib.appendChild(el); hudEl.items.push({ el, icw: el.querySelector('.icw'), cdov: el.querySelector('.cdov'), cdtxt: el.querySelector('.cdtxt'), chg: el.querySelector('.chg'), id: undefined });
+    }
+  }
+  invU.items.forEach((it, i) => {
     const e = hudEl.items[i], id = it ? it.id : null;
     if (e.id !== id) { e.id = id; e.icw.innerHTML = id ? icoHTML(ITEM_DEFS[id].icon, ITEM_DEFS[id].color) : ''; }
-    setS(e.cdov, 'background', cdBg(it && it.cd > 0 ? it.cd / (it.def.active.cd || 1) : 0));
+    setS(e.cdov, 'background', cdBg(it && it.cd > 0 ? it.cd / ((it.def.active && it.def.active.cd) || 1) : 0));
     setT(e.cdtxt, it && it.cd > 0 ? String(Math.ceil(it.cd)) : '');
-    setT(e.chg, it && it.def.stack ? String(it.charges) : '');
+    setT(e.chg, it && (it.def.stack || it.id === 'bloodstone') ? String(it.charges || 0) : '');
   });
+  updateGlyphHUD();
   if ((hudSlow -= 1) > 0) return; hudSlow = 6;
   const S = (U.def || P.def).stats, pr = S.primary, st = (k, n, g) => `<div><span class="${k === 'str' ? 'sa' : k === 'agi' ? 'sg' : 'si'}">${n}${pr === k ? '★' : ''}</span><b>${Math.floor(P[k])} <small style="color:#888">+${g}</small></b></div>`;
   const html = `<div><span>攻击力</span><b>${Math.round(U.dmgMin)}-${Math.round(U.dmgMax)}</b></div><div><span>护甲</span><b>${U.armor.toFixed(1)}</b></div><div><span>攻击速度</span><b>${(1 / U.atkInterval).toFixed(2)}/秒</b></div><div><span>移动速度</span><b>${Math.round(U.speed * 50)}</b></div><div><span>魔法抗性</span><b>${Math.round(U.magicRes * 100)}%</b></div>` +
@@ -102,7 +117,8 @@ const HELP_HTML = `<div style="color:#ffd54f;font-size:16px;font-weight:bold;mar
 <b>A + 左键</b>攻击移动<br>
 <b>S</b>停止　　<b style="min-width:0">H</b>　原地待命<br>
 <b>1 - 6</b>使用物品栏物品（右键物品出售）<br>
-<b>B</b>打开 / 关闭商店<br>
+<b>B</b>打开 / 关闭商店（阵亡时 = 买活）　<b>G</b>防御符文<br>
+<b>T</b>将英雄一件物品交给当前选中的战熊<br>
 <b>方向键 / 鼠标移到屏幕边缘</b>移动镜头<br>
 <b>空格</b>镜头回到英雄（按住跟随）　<b style="min-width:0">Y</b> 锁定镜头<br>
 <b>鼠标滚轮</b>缩放镜头<br>

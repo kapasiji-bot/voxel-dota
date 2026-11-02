@@ -22,7 +22,7 @@ registerHero({
     armR: [[0, -0.42, 0, 0.32, 0.85, 0.36, '#37474f'], [0, -0.84, 0, 0.32, 0.2, 0.36, '#cfd8dc'], [0, -0.9, 0.7, 0.12, 0.16, 1.3, '#eceff1'], [0, -0.9, 0.06, 0.4, 0.12, 0.14, '#00838f']],
     armL: [[0, -0.42, 0, 0.32, 0.85, 0.36, '#37474f'], [0, -0.84, 0, 0.32, 0.2, 0.36, '#cfd8dc']] }),
   abilities: [
-    { id: 'dagger', key: 'Q', name: '窒息之刃', icon: '刃', color: '#90a4ae', target: 'unit', range: 12, castPoint: 0.3,
+    { id: 'dagger', shard: { desc: '窒息之刃伤害 +35。', values: { dmg: 100 } }, key: 'Q', name: '窒息之刃', icon: '刃', color: '#90a4ae', target: 'unit', range: 12, castPoint: 0.3,
       mana: 30, cd: [6, 5, 4, 3], values: { dmg: 65, pct: [0.3, 0.45, 0.6, 0.75], slow: 0.5, dur: [1.2, 1.8, 2.4, 3] }, fmt: { pct: v => Math.round(v * 100) + '%', slow: v => Math.round(v * 100) + '%' },
       text: L => `掷出匕首，造成 ${L.dmg} + ${L.pct} 攻击力的物理伤害（可触发恩赐解脱暴击），并减速 ${L.slow}，持续 ${L.dur} 秒。`,
       onCast(c, t) { const h = c.caster;

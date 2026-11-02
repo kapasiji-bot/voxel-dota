@@ -10,4 +10,12 @@ Object.assign(GameAPI, {
   FS, fsActive, fsEnter, fsExit, toggleFullscreen, PL, plOn, plActive, plSetOption, plRequest, plMoveTo, plButton, plWheel, edgeAllowed, plCursorKind,
   plSimulate(on = true) { PL.sim = !!on; document.documentElement.classList.toggle('plLocked', plActive()); if (plActive()) plMoveTo(PL.x, PL.y); else { plHover(null); plDraw(); } },
   DIFFS, unitById, teamPlan, teamTick, setPlan, teamAdv, knownEnemies, pickPushTarget, rallyFor, startPush, assignGank, teamDive, teamDest, roshReady, botTeam, cheeseTaker, aegisTaker,
+  // B12 mid-game polish
+  buybackCost, buybackReady, canBuyback, doBuyback, BB_CD,
+  castGlyph, glyphReady, glyphActive, glyphState, GLYPH_CD, GLYPH_DUR, pressGlyph, pressBuyback, updateDeathUI,
+  trySpellBlock, hasShard, applyShard, transferItem, tickSmoke, breakSmokeGroup: typeof clearSmokeTeam === 'function' ? clearSmokeTeam : undefined,
+  botBuyback, botGlyph, botSmokeBuy, botSmokeUse, botFarmer, emptyLane,
+  // B13 polish: shard coverage helpers, item-aware bot prep, courier burst/upgrade, dynamic wards
+  courierUpgrade, courierOrder, spawnCourier, COURIER_SPEED, COURIER_BURST_MULT, COURIER_BURST_DUR, COURIER_UPGRADE_COST, COURIER_UPGRADE_MULT,
+  dynamicWardSpots, wardSpots, foeHasSpellBlock, needsBkbChannel, botPopBkb,
 });

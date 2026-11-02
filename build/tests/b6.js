@@ -25,7 +25,7 @@ module.exports = ({ test, boot, assert }) => {
   test('boot (B6): 21 hero cards incl. Queen of Pain, Silencer, Phantom Assassin; summon portraits framed', async page => {
     await boot(page);
     const r = await page.evaluate(() => ({ heroes: Object.keys(GameAPI.HERO_DEFS), cards: document.querySelectorAll('.card').length, ports: Object.keys(GameAPI.PORTRAITS).filter(k => k.startsWith('summon_')).length }));
-    assert(r.heroes.length === 21 && r.cards === 21 && ['qop', 'silencer', 'pa'].every(h => r.heroes.includes(h)), 'heroes ' + JSON.stringify(r));
+    assert(r.heroes.length >= 21 && r.cards === r.heroes.length && ['qop', 'silencer', 'pa'].every(h => r.heroes.includes(h)), 'heroes ' + JSON.stringify(r));
     assert(r.ports >= 5, 'summon portraits ' + r.ports);
     return JSON.stringify(r).slice(0, 120);
   });

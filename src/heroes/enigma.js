@@ -23,7 +23,7 @@ registerHero({
       [-0.55, 1.45, 0, 0.3, 0.6, 0.3, '#4527a0'], [0.55, 1.45, 0, 0.3, 0.6, 0.3, '#4527a0'], [0, 2.25, 0, 0.4, 0.3, 0.4, '#311b92']],
     bodyGlow: [[0, 0.6, 0.31, 0.4, 0.4, 0.02, '#7c4dff'], [-0.18, 1.75, 0.41, 0.14, 0.14, 0.02, '#ea80fc'], [0.18, 1.75, 0.41, 0.14, 0.14, 0.02, '#ea80fc']] }),
   abilities: [
-    { id: 'malefice', ai: { disable: true }, key: 'Q', name: '魔化', icon: '魔', color: '#7c4dff', target: 'unit', range: 10, castPoint: 0.3,
+    { id: 'malefice', ai: { disable: true }, shard: { desc: '魔化额外发作 1 次。', values: { n: 4 } }, key: 'Q', name: '魔化', icon: '魔', color: '#7c4dff', target: 'unit', range: 10, castPoint: 0.3,
       mana: [100, 110, 120, 130], cd: [16, 15, 14, 13], values: { stun: [0.3, 0.5, 0.7, 0.9], dmg: [30, 50, 70, 90], n: 3 },
       text: L => `对一名敌人施加魔化：4 秒内共 ${L.n} 次（每 2 秒一次）眩晕 ${L.stun} 秒并造成 ${L.dmg} 点魔法伤害。`,
       onCast(c, t) { AB.addModifier(t, ENIG_MALEFICE, c.caster, { dur: 4.05, data: { stun: c.v('stun'), dmg: c.v('dmg') } }); } },

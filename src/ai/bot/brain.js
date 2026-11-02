@@ -8,7 +8,8 @@ function makeBot(h, lane, diffIdx = 1) {
 }
 function setMode(h, b, m) { if (b.mode !== m) { emit('botMode', { unit: h.id, from: b.mode, to: m }); b.mode = m; } }
 function botUpdate(h, dt) {
-  const b = h.bot; if (!b || h.dead || G.over) return;
+  const b = h.bot; if (!b || G.over) return;
+  if (h.dead) { botBuyback(h, b); return; }
   b.t -= dt; if (b.t > 0) return;
   b.t = b.d.tick * rnd(0.8, 1.2); b.thinks = (b.thinks || 0) + 1;
   if (h.casting) return;                          // never cancel our own cast point
@@ -19,7 +20,8 @@ function botUpdate(h, dt) {
   if (h.channel && botKeepChannel(h, b, s)) return;   // ai/bot/ults.js: keep / stop channels
   if (h.channel) return;
   if (b.combo && !b.retreat && botComboStep(h, b, s)) return;   // ai/bot/combos.js: finish a running combo first
-  botShop(h, b); botCourier(h, b);   // ai/bot/courier.js (B8)
+  botShop(h, b); botSmokeBuy(h, b); botCourier(h, b);   // ai/bot/courier.js (B8)
+  if (botGlyph(h, b)) return;
   botUnits(h, b, s);   // ai/bot/units.js: own summons / illusions
   botToggles(h, b, s);  // ai/bot/ults.js: Voodoo Restoration on / off
   // --- retreat / heal at fountain (hysteresis) ---
@@ -37,9 +39,11 @@ function botUpdate(h, dt) {
   if (thr && dst(h, thr) > 45 && !s.foes.length && botTp(h, b, thr, 'defend')) { setMode(h, b, 'tp'); return; }
   if (thr && dst(h, thr) < 80 && !s.foes.some(f => dst(f, h) < 10)) { setMode(h, b, 'defend'); if (h.order.type !== 'amove' || dst(h.order, thr) > 4) issueOrder(h, { type: 'amove', x: thr.x, z: thr.z }); return; }
   // --- fight ---
+  if (botSmokeUse(h, b, s)) { setMode(h, b, 'smoke'); return; }
   const t = pickFightTarget(h, b, s);
   if (t) { setMode(h, b, 'fight'); b.target = t; if (botCombo(h, b, s)) return; if (botUseItems(h, b, s, 'fight', t)) return; if (botBigSpells(h, b, s)) return; if (botCastOnHero(h, b, s, t)) return; if (!(h.atk && h.atk.target === t)) botAttack(h, t); return; }
   b.target = null;
+  const fm = botFarmer(h, b, s); if (fm) { setMode(h, b, fm); return; }   // ai/bot/farmer.js (B12): keep a lane farmed late
   const jm = botJungle(h, b, s); if (jm) { setMode(h, b, jm); botUseItems(h, b, s, 'lane', null); return; }   // ai/bot/jungle.js (B8): Roshan / Aegis / neutral farm
   if (botUseItems(h, b, s, 'lane', null)) return;
   if (botSummon(h, b, s)) return;          // wolves / bear / treants

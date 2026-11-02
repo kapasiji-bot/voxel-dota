@@ -34,7 +34,7 @@ registerHero({
       mana: 60, cd: [15, 12, 10, 8],
       text: L => `瞬间传送到最远 ${L.range} 码外的目标位置。`,
       onCast(c, pt) { AB.teleport(c.caster, pt, { maxR: c.v('range'), colors: ['#f50057', '#ff80ab', '#4a148c'] }); } },
-    { id: 'scream', key: 'E', name: '痛苦尖叫', icon: '叫', color: '#c51162', target: 'none', castPoint: 0,
+    { id: 'scream', shard: { desc: '痛苦尖叫半径 +1.5。', values: { radius: 7 } }, key: 'E', name: '痛苦尖叫', icon: '叫', color: '#c51162', target: 'none', castPoint: 0,
       mana: [80, 90, 100, 110], cd: 7, values: { dmg: [75, 150, 225, 300], radius: 5.5 },
       text: L => `发出尖叫，对周围 ${L.radius} 码内所有敌人造成 ${L.dmg} 点魔法伤害。`,
       onCast(c) { const h = c.caster;

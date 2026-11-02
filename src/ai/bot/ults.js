@@ -4,6 +4,7 @@
 //   ai.channelWard: Death Ward — channel only when safe (HP > 50 %, nobody on top of us) with an enemy hero in reach.
 //   ai.allyBuff: ally-target buff (Frost Shield) on an ally hero / own tower under attack.
 //   ai.toggle: 'heal' — Voodoo Restoration on while hurt allies are near and mana allows, off otherwise.
+//   B13: auto-pop BKB before commit/channelWard ults (ai/bot/precast.js); skip unit targets with Lotus/Linken.
 //   botKeepChannel: generic channel management — keep channelling while it still hits something; stop an AoE channel with no
 //     enemy heroes inside for ~1.2 s; break off when in danger unless ai.commit (Black Hole).
 const ultRadius = (ab, ai) => typeof ai.radius === 'number' ? ai.radius : lvVal(ab.def, ai.radius || 'radius', ab.lvl) || 6;
@@ -25,6 +26,8 @@ function botBigSpells(h, b, s) {
       }
       const lone = best && bn < min && best.hp / best.maxHp < 0.3 && s.foes.length === 1 && h.level >= 6;
       if (!best || (bn < min && !lone)) continue;
+      if (needsBkbChannel(ab) && botPopBkb(h, b, 'ult:' + ab.def.id)) return true;   // B13: BKB before Black Hole etc.
+      if (tgt === 'unit' && foeHasSpellBlock(best)) continue;   // B13 Lotus/Linken
       emit('botUlt', { unit: h.id, ability: ab.def.id, heroes: bn });
       if (tgt === 'none') return !orderCast(h, slot, null);
       if (tgt === 'unit') return !orderCast(h, slot, best);
@@ -47,6 +50,7 @@ function botBigSpells(h, b, s) {
     if (ai.channelWard) {
       const reach = lvVal(ab.def, 'reach', ab.lvl) || 12, t = s.foes.filter(f => f.isHero && dst(f, h) < reach + 3).sort((a, c) => a.hp - c.hp)[0];
       if (!t || s.hpPct < 0.5 || s.foes.some(f => dst(f, h) < 4) || s.foes.length > s.allies.length + 2) continue;
+      if (botPopBkb(h, b, 'death_ward')) return true;   // B13: BKB before Death Ward
       const d = AB.dir(h, t); emit('botUlt', { unit: h.id, ability: ab.def.id, heroes: 1 });
       return !orderCast(h, slot, { x: h.x + d.x * 2, z: h.z + d.z * 2 });
     }

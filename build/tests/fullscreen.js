@@ -7,7 +7,12 @@ module.exports = ({ test, boot, assert }) => {
     await boot(page, 'lina');
     const r0 = await page.evaluate(() => { const b = document.getElementById('fsBtn'), g = document.getElementById('optBtn').getBoundingClientRect(), r = b.getBoundingClientRect();
       return { title: b.title, svg: !!b.querySelector('svg'), nextToGear: Math.abs(r.top - g.top) < 4 && r.left >= g.right - 2 && r.left - g.right < 30, help: document.getElementById('help').textContent.includes('全屏') }; });
-    await page.click('#fsBtn'); await wait(400);
+    await page.click('#fsBtn');
+    // headless Fullscreen API can fire after the click microtask; wait for icon sync
+    for (let i = 0; i < 20; i++) {
+      const ok = await page.evaluate(() => !GameAPI.fsActive() || document.getElementById('fsBtn').classList.contains('on'));
+      if (ok) break; await wait(50);
+    }
     const r1 = await page.evaluate(() => ({ calls: GameAPI.FS.calls, active: GameAPI.fsActive(), err: GameAPI.FS.error, on: document.getElementById('fsBtn').classList.contains('on'), title: document.getElementById('fsBtn').title,
       canvasW: document.querySelector('canvas').width, w: innerWidth }));
     await page.keyboard.press('f'); await wait(400);

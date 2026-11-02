@@ -27,7 +27,7 @@
     <div><span>摧毁 <b id="direScore">0</b></span><span class="dire">夜魇</span></div>
   </div>
   <div id="kda">击杀/死亡/助攻 <b id="kdaTxt">0 / 0 / 0</b><br>正补/反补 <b id="lhTxt">0 / 0</b></div>
-  <button id="helpBtn" class="mcbtn">操作说明 (F9)</button><button id="optBtn" class="mcbtn">⚙ 设置 (F10)</button><button id="fsBtn" class="mcbtn" title="全屏 (F / Alt+Enter)"></button>
+  <button id="glyphBtn" class="mcbtn glyphBtn">防御符文 (G)</button><button id="helpBtn" class="mcbtn">操作说明 (F9)</button><button id="optBtn" class="mcbtn">⚙ 设置 (F10)</button><button id="fsBtn" class="mcbtn" title="全屏 (F / Alt+Enter)"></button>
   <div id="help" class="panel hidden"></div>
   <div id="msgs"></div>
   <div id="errmsg"></div>
@@ -52,7 +52,7 @@
   </div>
 
   <div id="shop" class="panel hidden"><h3><span>商店</span><button class="mcbtn" id="shopClose">关闭</button></h3><div id="shopHint"></div><div id="shopTop"><div id="shopTabs"></div><input id="shopSearch" type="text" placeholder="搜索物品（名称 / 英文 / 简称）" autocomplete="off" spellcheck="false"></div><div id="shopList"></div><div id="shopEmpty" class="hidden">没有匹配的物品</div><div id="stashRow"></div><div id="shopFoot">左键点击购买；鼠标悬停查看配方树。只能在己方基地内直接取得/出售物品。</div></div>
-  <div id="death" class="hidden"><div id="deathTxt">你已阵亡</div></div>
+  <div id="death" class="hidden"><div id="deathBox"><div id="deathTxt">你已阵亡</div><div id="bbStatus"></div><button id="bbBtn" class="bbBtn" disabled>买活</button></div></div>
   <div id="announce"></div>
   <div id="pause" class="hidden">已暂停 (P)</div>
   <div id="netHud" class="panel hidden"></div>

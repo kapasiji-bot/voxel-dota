@@ -32,7 +32,7 @@ function botItemActives(h, b, s, mode, target) {
     if (a) return botItemUse(h, b, i, a); }
   i = itemReady(h, id => id === 'euls');
   if (i >= 0) {
-    const ch = s.foes.find(f => f.channel && dst(f, h) < 13 && !hasState(f, 'magicImmune'));
+    const ch = s.foes.find(f => f.channel && dst(f, h) < 13 && !hasState(f, 'magicImmune') && !foeHasSpellBlock(f));
     if (ch) { emit('botEulInterrupt', { unit: h.id, target: ch.id }); return botItemUse(h, b, i, ch); }
     const dangerous = near(h, 8).length && (h.silenced && !h.hexed || h.mods.some(m => m.def.debuff && m.def.tick && m.t > 2));
     if (dangerous || (mode === 'retreat' && s.hpPct < 0.25 && near(h, 6).length)) return botItemUse(h, b, i, h);
@@ -45,12 +45,25 @@ function botItemActives(h, b, s, mode, target) {
   }
   i = itemReady(h, isDagon);
   if (i >= 0) { const D = h.items[i].def, dmg = DAGON_DMG[(D.level || 1) - 1];
-    const t = s.foes.find(f => !hasState(f, 'magicImmune') && f.hp < dmg * (1 - (f.magicRes || 0)) && dst(f, h) < D.active.range + 1)
+    const t = s.foes.find(f => !hasState(f, 'magicImmune') && !foeHasSpellBlock(f) && f.hp < dmg * (1 - (f.magicRes || 0)) && dst(f, h) < D.active.range + 1)
       || (mode === 'fight' && target && target.isHero && target.hp < target.maxHp * 0.45 ? target : null);
     if (t && botItemUse(h, b, i, t)) return true; }
   i = itemReady(h, id => id === 'scythe');
   if (i >= 0 && (mode === 'fight' || s.foes.some(f => f.channel))) {
-    const t = s.foes.find(f => f.channel && !hasState(f, 'magicImmune')) || (target && target.isHero && !hasState(target, 'magicImmune') && disabledFor(target) < 0.5 ? target : null);
+    const t = s.foes.find(f => f.channel && !hasState(f, 'magicImmune') && !foeHasSpellBlock(f)) || (target && target.isHero && !hasState(target, 'magicImmune') && !foeHasSpellBlock(target) && disabledFor(target) < 0.5 ? target : null);
     if (t && botItemUse(h, b, i, t)) return true; }
+
+  i = itemReady(h, id => id === 'satanic');
+  if (i >= 0 && mode === 'fight' && s.hpPct < 0.55 && near(h, 8).length) return botItemUse(h, b, i, null);
+  i = itemReady(h, id => id === 'lotus');
+  if (i >= 0 && (mode === 'fight' || recentlyHitByHero(h, 2) || (h.channel && (h.channel.ab.def.ai || {}).commit))) {
+    // B13: prefer shelling a channelling ally (Black Hole) or self under fire; Lotus bait vs unit-target casters
+    const chan = team.find(a => a.channel && (a.channel.ab.def.ai || {}).commit && !getMod(a, 'lotus') && dst(a, h) < 18);
+    const a = chan || team.find(a => a.hp < a.maxHp * 0.5 && near(a, 10).length && !getMod(a, 'lotus') && dst(a, h) < 18)
+      || (near(h, 9).length && !getMod(h, 'lotus') ? h : null);
+    if (a) return botItemUse(h, b, i, a);
+  }
+  i = itemReady(h, id => id === 'bloodstone');
+  if (i >= 0 && s.hpPct < 0.28 && (s.foes.length || recentlyHitByHero(h, 3)) && bsCharges(h.items[i]) >= 4) return botItemUse(h, b, i, null);
   return false;
 }

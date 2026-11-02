@@ -32,7 +32,7 @@ registerHero({
         AB.ringP(pt.x, pt.z, 0.6, 40, ['#e1f5fe', '#81d4fa', '#ffffff'], 0.45, 0.3, 0.4, c.v('radius') / 0.45);
         for (let i = 0; i < 50; i++) { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * c.v('radius'); spawnP(pt.x + Math.cos(a) * r, rnd(0, 0.5), pt.z + Math.sin(a) * r, 0, rnd(3, 8), 0, rnd(0.4, 0.8), rnd(0.25, 0.5), ['#ffffff', '#b3e5fc', '#4fc3f7'][i % 3]); }
       } },
-    { id: 'frostbite', ai: { disable: true }, key: 'W', name: '冰封禁制', icon: '冰', color: '#0288d1', target: 'unit', range: 11, castPoint: 0.3,
+    { id: 'frostbite', ai: { disable: true }, shard: { desc: '冰封禁制对英雄持续时间 +0.5 秒。', values: { dur: [2, 2.5, 3, 3.5] } }, key: 'W', name: '冰封禁制', icon: '冰', color: '#0288d1', target: 'unit', range: 11, castPoint: 0.3,
       mana: [140, 145, 150, 155], cd: [9, 8, 7, 6], values: { dmg: [150, 200, 250, 300], dur: [1.5, 2, 2.5, 3], durCreep: 5 },
       text: L => `将一名敌人冰封，${L.dur} 秒内无法移动和攻击（对小兵 ${L.durCreep} 秒），期间共受到 ${L.dmg} 点魔法伤害。`,
       onCast(c, t) {

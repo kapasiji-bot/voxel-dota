@@ -21,7 +21,7 @@ registerHero({
       [0, 0.8, -0.32, 0.86, 1.1, 0.12, '#33691e']],
     armR: [[0, -0.4, 0, 0.34, 0.85, 0.38, '#558b2f'], [0, -0.82, 0, 0.32, 0.2, 0.36, '#d7b38c'], [0, -0.6, 0.3, 0.14, 2.2, 0.14, '#6d4c41']], armRGlow: [[0, 0.55, 0.3, 0.36, 0.36, 0.36, '#c6ff00']] }),
   abilities: [
-    { id: 'sprout', ai: { disable: true }, key: 'Q', name: '发芽', icon: '芽', color: '#43a047', target: 'point', range: 14, castPoint: 0.35,
+    { id: 'sprout', ai: { disable: true }, shard: { desc: '发芽持续时间 +1 秒。', values: { dur: [4, 4.75, 5.5, 6.25] } }, key: 'Q', name: '发芽', icon: '芽', color: '#43a047', target: 'point', range: 14, castPoint: 0.35,
       mana: [70, 80, 90, 100], cd: [11, 10, 9, 8], values: { dur: [3, 3.75, 4.5, 5.25], ring: 3 },
       text: L => `在目标位置周围长出一圈树木（半径 ${L.ring} 码），阻挡移动与视野，持续 ${L.dur} 秒，并提供该处视野。`,
       onCast(c, pt) { const k = AB.sproutRing(pt.x, pt.z, c.v('ring'), c.v('dur')); addVisionAt(c.caster.team, pt.x, pt.z, 6, c.v('dur'));

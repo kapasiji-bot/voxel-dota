@@ -4,6 +4,7 @@
 //   heroes within `radius` of it (or one under hpBelow). 'center' = their centroid, 'near' = a point 1.8 short of it on our side.
 // Starts only when every step is ready (cooldowns, total mana, blink), we are healthy and the cluster is within reach.
 // Examples: Earthshaker blink → Fissure → Echo Slam, Enigma blink → Black Hole, Lion Hex → Earth Spike, QoP Blink → Sonic Wave.
+// B13: before a channel ult step, auto-pop BKB if held (ai/bot/precast.js); skip unit-target steps into Lotus/Linken.
 // Events: botCombo{unit, combo, step, n} per executed step, botComboDone{unit, combo, ok}.
 function comboSteps(c) { return c.steps.map(s => typeof s === 'string' ? { item: s } : s); }
 function comboReady(h, c) {
@@ -53,6 +54,11 @@ function botComboStep(h, b, s) {
   if (G.time - cb.t > 2.5) return end(false);
   if (h.channel) return true;
   if (cb.issued === cb.i && G.time - cb.it < 0.6) return true;   // wait for the order to go through
+  if (!st.item) {
+    const ab = h.abilities[st.slot];
+    if (needsBkbChannel(ab) && botPopBkb(h, b, 'combo:' + cb.def.id)) { cb.it = G.time; return true; }   // B13: BKB before channel ult
+    if (ab.def.target === 'unit' && foeHasSpellBlock(cb.target)) return end(false);   // B13: don't dump into Lotus / Linken
+  }
   cb.issued = cb.i; cb.it = G.time;
   if (st.item) { const p = comboPoint(h, cb, 'near'); useItem(h, itemSlot(h, st.item), p); return true; }
   const ab = h.abilities[st.slot], tt = ab.def.target;

@@ -5,6 +5,7 @@ function step(dt) {
   tickVision(dt);   // vision/fog.js (5 Hz team vision grids)
   tickShop(dt); tickItemPassives(dt); tickWards(); tickTrees(); tickSummons(); tickWalls(); tickToggles(dt); tickBlur(dt);   // entities/shop.js (stock, stash delivery), entities/wards.js (expiry)
   tickCamps(); tickRoshan(); tickDrops(dt); tickCouriers();   // B8: entities/neutrals.js, roshan.js, drops.js, courier.js
+  if (typeof tickSmoke === 'function') tickSmoke(); if (typeof tickGlyph === 'function') tickGlyph();   // B12
   for (const h of G.heroes) {   // passive gold, cooldowns, regen, respawn for every hero
     h.goldF += 1.6 * dt; if (h.goldF >= 1) { const g = Math.floor(h.goldF); h.goldF -= g; h.gold += g; h.goldEarned = (h.goldEarned || 0) + g; if (h === G.player) G.goldEarned += g; }
     updateHeroTimers(h, dt);

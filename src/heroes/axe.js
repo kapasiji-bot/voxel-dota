@@ -27,7 +27,7 @@ registerHero({
       [0, -1.0, 0.4, 0.16, 0.16, 2.0, '#6b4423'], [0, -0.95, 1.25, 0.12, 1.3, 0.6, '#d8d8d8'], [0, -0.95, 1.58, 0.1, 1.5, 0.12, '#f0f0f0'], [0, -0.95, 0.98, 0.14, 0.5, 0.12, '#888']],
   }),
   abilities: [
-    { id: 'call', ai: { selfAoe: true, disable: true }, key: 'Q', name: '狂战士之吼', icon: '吼', color: '#c62828', target: 'none', castPoint: 0,
+    { id: 'call', ai: { selfAoe: true, disable: true }, shard: { desc: '狂战士之吼半径 +1.5，持续时间 +0.5 秒。', values: { radius: 7.5, dur: [2.5, 2.9, 3.3, 3.7] } }, key: 'Q', name: '狂战士之吼', icon: '吼', color: '#c62828', target: 'none', castPoint: 0,
       mana: [80, 90, 100, 110], cd: [16, 14, 12, 10], values: { radius: 6, dur: [2, 2.4, 2.8, 3.2], armor: [12, 13, 14, 15] },
       text: L => `嘲讽周围 ${L.radius} 码内的敌方单位，强迫它们攻击斧王，持续 ${L.dur} 秒；期间斧王获得 ${L.armor} 点额外护甲。`,
       onCast(c) {

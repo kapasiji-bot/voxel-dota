@@ -39,7 +39,7 @@ registerHero({
       mana: [15, 15, 15, 15], cd: 0, values: { mult: [0.15, 0.3, 0.45, 0.6] }, fmt: { mult: v => Math.round(v * 100) + '%' },
       text: L => `法球（可自动施放：右键图标）：攻击额外造成相当于智力 ${L.mult} 的纯粹伤害。`,
       onOrbHit(c, t) { const d = AB.statDmg(c.caster, 'int', c.v('mult')); AB.burst(t.x, 1.5, t.z, 8, ['#ffd54f', '#ffffff'], 3, 0.3, 0.2, 1, 0); return AB.damage(c.caster, t, d, 'pure', 'glaives'); } },
-    { id: 'last_word', ai: { disable: true, debuffId: 'sil_lastword' }, key: 'E', name: '遗言', icon: '遗', color: '#ff8f00', target: 'unit', range: 12, castPoint: 0.3,
+    { id: 'last_word', ai: { disable: true, debuffId: 'sil_lastword' }, shard: { desc: '遗言沉默 +0.5 秒。', values: { sil: [3.5, 4, 4.5, 5] } }, key: 'E', name: '遗言', icon: '遗', color: '#ff8f00', target: 'unit', range: 12, castPoint: 0.3,
       mana: 115, cd: [22, 18, 14, 10], values: { delay: 4, dmg: [100, 160, 220, 280], sil: [3, 3.5, 4, 4.5] },
       text: L => `对目标施加遗言：${L.delay} 秒后（或目标施法时立即）造成 ${L.dmg} 点魔法伤害并沉默 ${L.sil} 秒。`,
       onCast(c, t) { AB.addModifier(t, SIL_LASTWORD, c.caster, { dur: c.v('delay'), data: { dmg: c.v('dmg'), sil: c.v('sil') } }); AB.boltFx(c.caster, t, '#ffca28'); } },

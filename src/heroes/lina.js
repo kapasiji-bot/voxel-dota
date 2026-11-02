@@ -20,7 +20,7 @@ registerHero({
     armLGlow: [[0, -1.08, 0.08, 0.3, 0.3, 0.3, '#ffb300']], armRGlow: [[0, -1.08, 0.08, 0.3, 0.3, 0.3, '#ffb300']],
   }),
   abilities: [
-    { id: 'slave', key: 'Q', name: '龙破斩', icon: '龙', color: '#ef6c00', target: 'direction', castPoint: 0.2,
+    { id: 'slave', shard: { desc: '龙破斩伤害 +80。', values: { dmg: [165, 245, 325, 405] } }, key: 'Q', name: '龙破斩', icon: '龙', color: '#ef6c00', target: 'direction', castPoint: 0.2,
       mana: [90, 100, 110, 120], cd: [10, 9, 8, 7], values: { dmg: [85, 160, 235, 310], len: 20, speed: 30, w0: 3, w1: 5 },
       text: L => `向指定方向释放一道龙形火焰波，长度 ${L.len} 码，对沿途所有敌人造成 ${L.dmg} 点魔法伤害。`,
       onCast(c, pt) {

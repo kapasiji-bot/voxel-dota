@@ -120,7 +120,7 @@ module.exports = ({ test, boot, assert }) => {
     return JSON.stringify(r);
   });
 
-  test("B7 Aghanim's Scepter: every one of the 21 heroes has an ult `scepter` upgrade that changes a number; tooltip line; removing reverts; Axe refresh, Lina pure", async page => {
+  test("B7 Aghanim's Scepter: every hero has an ult `scepter` upgrade that changes a number; tooltip line; removing reverts; Axe refresh, Lina pure", async page => {
     await start(page, 'axe');
     const r = await page.evaluate(() => {
       const { A } = H7, o = { heroes: 0, ok: [], bad: [] }; H7.at(-20, -20);
@@ -140,7 +140,7 @@ module.exports = ({ test, boot, assert }) => {
       o.axe = { dead: t.dead, cd: P.abilities[3].cd, refresh: H7.ev('cullRefresh').length };
       return o;
     });
-    assert(r.heroes === 21 && r.ok.length === 21 && !r.bad.length, 'scepter upgrades ' + JSON.stringify(r));
+    assert(r.ok.length === r.heroes && !r.bad.length && r.heroes >= 21, 'scepter upgrades ' + JSON.stringify(r));
     assert(r.axe.dead && r.axe.cd === 0 && r.axe.refresh === 1, 'axe refresh ' + JSON.stringify(r.axe));
     const l = await (async () => { await start(page, 'lina'); return page.evaluate(() => { const { A } = H7, P = A.G.player; H7.at(-20, -20); const t = H7.dummy(-12, -20); H7.only('scepter');
       A.castAbility(3, t); A.simulate(1, 1 / 20); return A.getLog('damage').filter(e => e.ability === 'laguna').map(e => e.dtype + ':' + Math.round(e.amount)); }); })();
@@ -173,8 +173,8 @@ module.exports = ({ test, boot, assert }) => {
     }
     for (const w in out) if (out[w].up !== undefined) {
       const o = out[w];
-      assert(o.up >= 20 && o.upHas && o.basic && o.cons === 'dust,salve,tp,ward_obs,ward_sentry', 'tabs ' + w + JSON.stringify(o));
-      assert(o.s1 === 'scythe' && o.s2 === 'force' && o.s3 === 'scepter' && o.empty, 'search ' + w + JSON.stringify(o));
+      assert(o.up >= 20 && o.upHas && o.basic && o.cons === 'dust,salve,smoke,tp,ward_obs,ward_sentry', 'tabs ' + w + JSON.stringify(o));
+      assert(o.s1 === 'scythe' && o.s2 === 'force' && (o.s3 === 'scepter' || o.s3 === 'scepter,shard') && o.empty, 'search ' + w + JSON.stringify(o));
       assert(o.fit, 'shop fits above the HUD at ' + w + ' ' + JSON.stringify(o.rect));
       assert(o.tree && o.tree5, 'recipe tree ' + w);
     }

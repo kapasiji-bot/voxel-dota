@@ -24,7 +24,8 @@ function spawnSummon(owner, type, x, z, o = {}) {
     atkInterval: d.bat || 1.4, range: d.range || 2, proj: d.proj || 0, projColor: d.projColor, speed: o.speed || d.speed, atkPoint: d.atkPoint || 0.35, backswing: d.backswing || 0.4,
     magicRes: d.magicRes || 0, gold: o.gold !== undefined ? o.gold : d.gold, xp: o.xp !== undefined ? o.xp : d.xp, visionR: d.vision || 14, controllable: o.control !== false,
     expire: o.dur ? G.time + o.dur : 0, ringMesh: ring, order: { type: 'idle' }, path: null, repathT: 0, dmgBy: {}, level: o.lvl || 1,
-    abilities: (d.abilities || []).map(a => ({ def: a, lvl: o.lvl || 1, cd: 0, cdMax: 1 })), spawnO: o, chan: o.channel ? owner.channel : null, atkN: 0, noSplit: !!o.noSplit }, o.stats || {}), model);
+    abilities: (d.abilities || []).map(a => ({ def: a, lvl: o.lvl || 1, cd: 0, cdMax: 1 })), spawnO: o, chan: o.channel ? owner.channel : null, atkN: 0, noSplit: !!o.noSplit,
+    items: d.invSlots ? Array(d.invSlots).fill(null) : undefined, invSlots: d.invSlots || 0 }, o.stats || {}), model);
   if (o.invuln) addModifier(u, SUMMON_INVULN, u);
   emit('summon', { unit: u.id, owner: owner.id, stype: type });
   burst(u.x, 1, u.z, 14, d.fx || ['#a5d6a7', '#ffffff'], 4, 0.5, 0.25, 2);
@@ -44,7 +45,7 @@ function summonSplit(u) {
   if (u.order && u.order.target) issueOrder(c, { type: 'attack', target: u.order.target });
   emit('summonSplit', { unit: u.id, copy: c.id, stype: u.type });
 }
-function updateUnitTimers(u, dt) { if (u.abilities) for (const ab of u.abilities) if (ab.cd > 0) ab.cd = Math.max(0, ab.cd - dt); if (u.hpRegen && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.hpRegen * dt); }
+function updateUnitTimers(u, dt) { if (u.abilities) for (const ab of u.abilities) if (ab.cd > 0) ab.cd = Math.max(0, ab.cd - dt); if (u.items) for (const it of u.items) if (it && it.cd > 0) it.cd = Math.max(0, it.cd - dt); if (u.hpRegen && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.hpRegen * dt); }
 // killUnit branch (combat/damage.js) for summons and illusions
 function ownedDeath(u, killer) {
   const kh = ownerOf(killer), exp = !!u.expired;

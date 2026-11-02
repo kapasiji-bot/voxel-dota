@@ -22,7 +22,7 @@ registerHero({
     armR: [[0, -0.45, 0, 0.32, 0.95, 0.36, '#1565c0'], [0, -0.9, 0, 0.3, 0.2, 0.32, '#cfd8dc']],
     armRGlow: [[0, -1.05, 0.15, 0.36, 0.36, 0.36, '#b3e5fc']] }),
   abilities: [
-    { id: 'frost_blast', key: 'Q', name: '寒霜爆发', icon: '霜', color: '#4fc3f7', target: 'unit', range: 14, castPoint: 0.4,
+    { id: 'frost_blast', shard: { desc: '寒霜爆发主目标伤害 +40。', values: { dmg: [90, 140, 190, 240] } }, key: 'Q', name: '寒霜爆发', icon: '霜', color: '#4fc3f7', target: 'unit', range: 14, castPoint: 0.4,
       mana: [100, 125, 150, 175], cd: [8, 7, 6, 5], values: { dmg: [50, 100, 150, 200], aoe: [80, 120, 160, 200], radius: 3.5, slow: 0.3, dur: 4 }, fmt: { slow: v => Math.round(v * 100) + '%' },
       text: L => `寒冰爆炸，对目标造成 ${L.dmg} 点魔法伤害，并对 ${L.radius} 码内所有敌人（含目标）造成 ${L.aoe} 点魔法伤害、降低 ${L.slow} 移动与攻击速度，持续 ${L.dur} 秒。`,
       onCast(c, t) { const h = c.caster;

@@ -27,7 +27,7 @@ registerHero({
     bodyGlow: [[-0.15, 1.62, 0.41, 0.12, 0.1, 0.02, '#76ff03'], [0.15, 1.62, 0.41, 0.12, 0.1, 0.02, '#76ff03']],
     armR: [[0, -0.45, 0, 0.32, 0.9, 0.34, '#6d4c41'], [0, -0.2, 0.25, 0.1, 2.0, 0.1, '#8d6e63'], [0, 0.85, 0.25, 0.4, 0.4, 0.4, '#efebe9']] }),
   abilities: [
-    { id: 'cask', ai: { disable: true }, key: 'Q', name: '麻痹药剂', icon: '药', color: '#9ccc65', target: 'unit', range: 12, castPoint: 0.35,
+    { id: 'cask', ai: { disable: true }, shard: { desc: '麻痹药剂弹射次数 +2。', values: { jumps: [4, 6, 8, 10] } }, key: 'Q', name: '麻痹药剂', icon: '药', color: '#9ccc65', target: 'unit', range: 12, castPoint: 0.35,
       mana: [110, 120, 130, 140], cd: [20, 18, 16, 14], values: { jumps: [2, 4, 6, 8], stun: 1, stunCreep: 5, dmg: 75, dmgCreep: 50, bounce: 8 },
       text: L => `掷出药剂，在 ${L.bounce} 码内的敌人之间弹射 ${L.jumps} 次（可来回弹射），每次眩晕英雄 ${L.stun} 秒、小兵 ${L.stunCreep} 秒，并造成 ${L.dmg} 点伤害（小兵 ${L.dmgCreep}）。`,
       onCast(c, t) { const h = c.caster;

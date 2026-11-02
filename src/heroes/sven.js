@@ -39,7 +39,7 @@ registerHero({
       values: { pct: [0.4, 0.55, 0.7, 0.85], len: 6.5, w1: 6 }, fmt: { pct: v => Math.round(v * 100) + '%' },
       text: L => `被动：攻击时对目标身后 ${L.len} 码锥形区域内的敌人造成 ${L.pct} 攻击伤害的溅射（无视护甲）。`,
       onAttackLand(c, tgt, dealt) { const h = c.caster; AB.cleave(h, tgt, (h.dmgMin + h.dmgMax) / 2 * c.v('pct'), { len: c.v('len'), w1: c.v('w1'), ability: 'cleave', color: '#b0bec5' }); } },
-    { id: 'warcry', key: 'E', name: '战吼', icon: '吼', color: '#1565c0', target: 'none', castPoint: 0,
+    { id: 'warcry', shard: { desc: '战吼护甲 +2，移速加成 +4%。', values: { armor: [7, 10, 13, 16], ms: [0.12, 0.16, 0.2, 0.24] } }, key: 'E', name: '战吼', icon: '吼', color: '#1565c0', target: 'none', castPoint: 0,
       mana: [30, 35, 40, 45], cd: [32, 28, 24, 20], values: { radius: 12, armor: [5, 8, 11, 14], ms: [0.08, 0.12, 0.16, 0.2], dur: 8 }, fmt: { ms: v => Math.round(v * 100) + '%' },
       text: L => `振臂高呼，使 ${L.radius} 码内的友方英雄获得 ${L.armor} 点护甲和 ${L.ms} 移动速度，持续 ${L.dur} 秒。`,
       onCast(c) {

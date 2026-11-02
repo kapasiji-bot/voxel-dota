@@ -32,7 +32,7 @@ registerHero({
       modifyAttack(c, t, info) { const h = c.caster, m = getMod(h, 'es_totem'); if (!m || t.isBuilding) return;
         info.dmg += h.dmgBase * m.data.mult; info.crit = 1 + m.data.mult; removeModById(h, 'es_totem'); emit('totemHit', { unit: h.id, target: t.id });
         AB.burst(t.x, 0.5, t.z, 24, ['#ffb300', '#8d6e63', '#ffffff'], 6, 0.5, 0.3, 4, 0); } },
-    { id: 'aftershock', key: 'E', name: '余震', icon: '震', color: '#a1887f', passive: true, values: { radius: 4.5, stun: [0.6, 0.9, 1.2, 1.5], dmg: [50, 75, 100, 125] },
+    { id: 'aftershock', shard: { desc: '余震眩晕 +0.25 秒。', values: { stun: [0.85, 1.15, 1.45, 1.75] } }, key: 'E', name: '余震', icon: '震', color: '#a1887f', passive: true, values: { radius: 4.5, stun: [0.6, 0.9, 1.2, 1.5], dmg: [50, 75, 100, 125] },
       text: L => `被动：每次施放技能时，对周围 ${L.radius} 码内的敌人造成 ${L.dmg} 点魔法伤害并眩晕 ${L.stun} 秒。`,
       onAbilityCast(c) { const h = c.caster;
         for (const u of AB.enemiesIn(h, h.x, h.z, c.v('radius'))) { AB.damage(h, u, c.v('dmg'), 'magic', 'aftershock'); AB.stun(u, h, c.v('stun')); }

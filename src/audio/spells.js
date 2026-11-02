@@ -13,6 +13,21 @@ const SPELL_SFX = {
   smoke: 'magic', cloak: 'invis', tricks: 'phys', arcane_curse: 'magic', glaives: 'magic', last_word: 'magic', global_silence: 'magic',
   hammer: 'stun', warcry: 'buff', gods: 'buff', cask: 'magic', voodoo: 'heal', maledict: 'dark', death_ward: 'summon',
   arc: 'lightning', bolt: 'lightning', static: 'lightning',
+  // B14
+  blade_fury: 'phys', healing_ward: 'heal', omnislash: 'phys',
+  raze_near: 'dark', raze_mid: 'dark', raze_far: 'dark', requiem: 'dark',
+  powershot: 'wind', shackleshot: 'wind', windrun: 'wind', focus_fire: 'buff',
+  wraithfire: 'dark', reincarnation: 'buff',
+  // B16
+  time_walk: 'blink', time_dilation: 'magic', chronosphere: 'dark',
+  starstorm: 'magic', sacred_arrow: 'phys', leap: 'wind', moonlight: 'invis',
+  hoof_stomp: 'stun', double_edge: 'phys', stampede: 'buff',
+  sprint: 'buff', crush: 'stun', haze: 'magic',
+  // B17
+  torrent: 'stun', tidebringer: 'phys', x_marks: 'magic', ghost_ship: 'wind',
+  spectral_dagger: 'dark', haunt: 'dark',
+  the_swarm: 'phys', shukuchi: 'invis', time_lapse: 'blink',
+  searing_chains: 'fire', flame_guard: 'fire', sleight_of_fist: 'phys', fire_remnant: 'fire',
   // items
   blink: 'blink', bkb: 'buff', salve: 'heal', mekansm: 'heal', cheese: 'heal', dagon: 'lightning', euls: 'wind', force: 'wind',
   glimmer: 'invis', scythe: 'magic', pipe: 'buff', dust: 'magic', phase_boots: 'buff',

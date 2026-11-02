@@ -3,7 +3,7 @@
 // (or with a full inventory) they wait in the stash (h.stash, max 6 entries) and move into free slots when the hero is in base.
 // Selling only works in base. Team stock (wards): ITEM_DEFS[id].stock = {max, every (s per restock), start} → G.stock[team][id].
 const STASH_MAX = 6;
-const atShop = h => !!h && !h.dead && inBase(h.x, h.z) === h.team;
+const atShop = h => { if (!h || h.dead) return false; const team = h.team; return inBase(h.x, h.z) === team; };
 function stockOf(team, id) {
   const D = ITEM_DEFS[id]; if (!D.stock) return Infinity;
   const S = G.stock || (G.stock = [{}, {}]);

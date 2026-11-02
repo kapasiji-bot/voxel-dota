@@ -5,7 +5,9 @@
 //   home    — fly back to the fountain and wait
 //   secret  — fly to the owner's side secret shop and wait there (secret items bought then go into the bag: shopsites.js)
 // Killable (towers, heroes, creeps): bounty to the killer, respawns COURIER_RESPAWN s later at the fountain keeping its bag.
+// B13: deliver orders get a short speed burst; fountain `courierUpgrade(h)` (250g once) permanently multiplies speed.
 const COURIER_BAG = 6, COURIER_HP = 300, COURIER_SPEED = 8.5, COURIER_RESPAWN = 60, COURIER_BOUNTY = 125;
+const COURIER_BURST_MULT = 1.55, COURIER_BURST_DUR = 7, COURIER_UPGRADE_COST = 250, COURIER_UPGRADE_MULT = 1.35;
 const COURIER_CN = { idle: '待命', home: '返回基地', deliver: '运送物品', secret: '前往神秘商店' };
 function courierHome(team) { const f = G.fountains[team] || heroSpawn(team); return { x: f.x + (team === RAD ? 4 : -4), z: f.z + (team === RAD ? -4 : 4) }; }
 function spawnCourier(h, bag) {
@@ -27,13 +29,25 @@ function courierOrder(h, type) {
   if (c.dead) return `信使正在复活（${Math.ceil(h.courierRespawn - G.time)} 秒）`;
   if (type === 'deliver' && !c.bag.length && !(h.stash || []).length) return '没有需要运送的物品';
   c.corder = { type, phase: type === 'deliver' && (h.stash || []).length ? 'load' : 'bring', t0: G.time };
+  if (type === 'deliver') { c.burstUntil = G.time + COURIER_BURST_DUR; emit('courierBurst', { unit: c.id, owner: h.id, until: c.burstUntil }); }
   emit('courierOrder', { unit: c.id, owner: h.id, type });
+  return null;
+}
+function courierUpgrade(h) {
+  const c = h && h.courier; if (!c || c.dead) return '没有信使';
+  if (c.upgraded) return '信使已升级';
+  if ((h.gold || 0) < COURIER_UPGRADE_COST) return `需要 ${COURIER_UPGRADE_COST} 金`;
+  h.gold -= COURIER_UPGRADE_COST; c.upgraded = true;
+  c.speed = COURIER_SPEED * COURIER_UPGRADE_MULT;
+  emit('courierUpgrade', { unit: c.id, owner: h.id });
+  if (h === G.player) msg(`信使永久加速 ×${COURIER_UPGRADE_MULT}（-${COURIER_UPGRADE_COST} 金）`, '#80d8ff');
   return null;
 }
 function courierFly(c, x, z, dt, stop = 0.5) {
   const dx = x - c.x, dz = z - c.z, d = Math.hypot(dx, dz);
   if (d <= stop) return true;
-  const s = Math.min(c.speed * dt, d - stop * 0.5); c.x = clamp(c.x + dx / d * s, -MAPH + 2, MAPH - 2); c.z = clamp(c.z + dz / d * s, -MAPH + 2, MAPH - 2);
+  const mult = (c.burstUntil && G.time < c.burstUntil) ? COURIER_BURST_MULT : 1;
+  const s = Math.min(c.speed * mult * dt, d - stop * 0.5); c.x = clamp(c.x + dx / d * s, -MAPH + 2, MAPH - 2); c.z = clamp(c.z + dz / d * s, -MAPH + 2, MAPH - 2);
   c.facing = Math.atan2(dx, dz); c.moveDist = (c.moveDist || 0) + s;
   return false;
 }
@@ -74,5 +88,7 @@ function courierDeath(c, killer) {
   corpses.push({ u: c, t: 0 });
 }
 function tickCouriers() {
-  for (const h of G.heroes) if (h.courier && h.courier.dead && h.courierRespawn && G.time >= h.courierRespawn) spawnCourier(h, h.courier.bag);
+  for (const h of G.heroes) if (h.courier && h.courier.dead && h.courierRespawn && G.time >= h.courierRespawn) {
+    const bag = h.courier.bag, up = h.courier.upgraded; const c = spawnCourier(h, bag); if (up) { c.upgraded = true; c.speed = COURIER_SPEED * COURIER_UPGRADE_MULT; }
+  }
 }

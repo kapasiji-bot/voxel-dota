@@ -34,7 +34,7 @@ registerHero({
     armL: [[0, -0.42, 0, 0.36, 0.85, 0.4, '#6d4c41'], [0, -0.82, 0, 0.38, 0.22, 0.42, '#a1887f'], [0, -0.9, 0.55, 0.12, 0.12, 0.9, '#e0e0e0'], [0, -0.9, 1.0, 0.36, 0.06, 0.18, '#e0e0e0']],
   }),
   abilities: [
-    { id: 'shuriken', key: 'Q', name: '水魔飞镖', icon: '镖', color: '#ff6f00', target: 'unit', range: 13, castPoint: 0.3,
+    { id: 'shuriken', shard: { desc: '水魔飞镖伤害 +40。', values: { dmg: [130, 200, 270, 340] } }, key: 'Q', name: '水魔飞镖', icon: '镖', color: '#ff6f00', target: 'unit', range: 13, castPoint: 0.3,
       mana: [100, 110, 120, 130], cd: 8, values: { dmg: [90, 160, 230, 300], stun: 0.25, bounce: 24 },
       text: L => `掷出飞镖，造成 ${L.dmg} 点魔法伤害并短暂眩晕 ${L.stun} 秒。飞镖会在 ${L.bounce} 码内被标记的敌人之间弹射。`,
       onCast(c, t) {

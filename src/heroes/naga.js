@@ -31,7 +31,7 @@ registerHero({
           for (const s of slots) { const u = AB.illusion(h, { x: s.x, z: s.z, out: c.v('out'), inc: c.v('inc'), dur: c.v('dur') }); if (h.order.type === 'attack') issueOrder(u, { type: 'attack', target: h.order.target }); }
           emit('mirrorImage', { unit: h.id, n }); });
       } },
-    { id: 'ensnare', ai: { disable: true }, key: 'W', name: '捕网', icon: '网', color: '#00838f', target: 'unit', range: 9, castPoint: 0.3,
+    { id: 'ensnare', ai: { disable: true }, shard: { desc: '捕网持续时间 +0.5 秒。', values: { dur: [2.5, 3, 3.5, 4] } }, key: 'W', name: '捕网', icon: '网', color: '#00838f', target: 'unit', range: 9, castPoint: 0.3,
       mana: [90, 100, 110, 120], cd: [14, 13, 12, 11], values: { dur: [2, 2.5, 3, 3.5] },
       text: L => `向目标敌人投出捕网，将其定身 ${L.dur} 秒（无法移动，但可以攻击和施法）。`,
       onCast(c, t) { AB.projectile({ src: c.caster, target: t, speed: 26, color: '#80deea', size: 0.8, trail: '#e0f7fa', onHit(u) { AB.root(u, c.caster, c.v('dur')); emit('ensnare', { unit: c.caster.id, target: u.id }); } }); } },

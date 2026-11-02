@@ -48,7 +48,7 @@ registerHero({
           if (o.trav >= o.len || !o.alive) { o.alive = false; o.fx.end(); return true; } return false;
         } });
       } },
-    { id: 'rift', ai: { disable: true }, key: 'W', name: '新月之痕', icon: '痕', color: '#7b1fa2', target: 'none', castPoint: 0.1,
+    { id: 'rift', ai: { disable: true }, shard: { desc: '新月之痕沉默 +0.5 秒。', values: { silence: [2.5, 3, 3.5, 4] } }, key: 'W', name: '新月之痕', icon: '痕', color: '#7b1fa2', target: 'none', castPoint: 0.1,
       mana: [100, 110, 120, 130], cd: 16, values: { radius: 7, dmg: [60, 120, 180, 240], silence: [2, 2.5, 3, 3.5] },
       text: L => `释放仙尘，对周围 ${L.radius} 码内的敌人造成 ${L.dmg} 点魔法伤害并沉默 ${L.silence} 秒。`,
       onCast(c) { const h = c.caster;

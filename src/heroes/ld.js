@@ -12,7 +12,7 @@ function ldLifesteal(c, dealt) {
   const ls = LD_LINK(c); if (!ls) return; const u = c.caster, h = u.isHero ? u : u.owner, mate = u.isHero ? AB.owned(h, 'ld_bear')[0] : h, heal = dealt * ls;
   u.hp = Math.min(u.maxHp, u.hp + heal); if (mate && !mate.dead) mate.hp = Math.min(mate.maxHp, mate.hp + heal * 0.5);
 }
-registerSummon({ id: 'ld_bear', name: '战熊', hp: 1100, armor: 2, dmg: [30, 35], bat: 1.6, range: 2.6, speed: 7.0, radius: 0.9, height: 2.6, gold: 300, xp: 100,
+registerSummon({ id: 'ld_bear', name: '战熊', invSlots: 3, hp: 1100, armor: 2, dmg: [30, 35], bat: 1.6, range: 2.6, speed: 7.0, radius: 0.9, height: 2.6, gold: 300, xp: 100,
   vision: 16, quad: true, fx: ['#9ccc65', '#ffffff', '#795548'], portrait: { headY: 2.0 },
   abilities: [
     { id: 'bear_return', key: 'Q', name: '返回', icon: '返', color: '#9ccc65', target: 'none', castPoint: 0, cd: 10, values: { calm: 3 },
@@ -52,7 +52,7 @@ registerHero({
       fmt: { ls: v => Math.round(v * 100) + '%' },
       text: L => `被动：德鲁伊攻击速度 +${L.as}。德鲁伊与战熊的攻击吸血 ${L.ls}，吸取的生命一半同时分享给对方。`,
       passiveProps: c => ({ as: c.v('as') }), onAttackLand(c, t, dealt) { ldLifesteal(c, dealt); } },
-    { id: 'roar', ai: { selfAoe: true, disable: true }, key: 'E', name: '野性咆哮', icon: '咆', color: '#8d6e63', target: 'none', castPoint: 0.1,
+    { id: 'roar', ai: { selfAoe: true, disable: true }, shard: { desc: '野性咆哮眩晕 +0.4 秒。', values: { dur: [1.6, 2.0, 2.4, 2.8] } }, key: 'E', name: '野性咆哮', icon: '咆', color: '#8d6e63', target: 'none', castPoint: 0.1,
       mana: 50, cd: [38, 32, 26, 20], values: { radius: 7, dur: [1.2, 1.6, 2, 2.4] },
       text: L => `德鲁伊（和战熊）发出咆哮，使周围 ${L.radius} 码内的敌人恐惧 ${L.dur} 秒：无法攻击和施法，只能逃跑。`,
       onCast(c) { const h = c.caster, srcs = [h, ...AB.owned(h, 'ld_bear')], hit = new Set();

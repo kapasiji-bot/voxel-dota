@@ -13,6 +13,6 @@ function updateCourierHUD() {
   const c = P.courier;
   let t = '信使：无';
   if (c && c.dead) t = `信使：复活中 ${Math.max(0, Math.ceil(P.courierRespawn - G.time))}s`;
-  else if (c) { const o = c.corder.type, sh = nearShopSite(c, 'secret') ? '（在神秘商店）' : ''; t = `信使：${COURIER_CN[o] || o}${sh}${c.bag.length ? ` · 背包 ${c.bag.length}` : ''}`; }
+  else if (c) { const o = c.corder.type, sh = nearShopSite(c, 'secret') ? '（在神秘商店）' : ''; const burst = c.burstUntil && G.time < c.burstUntil ? ' · 加速' : ''; const up = c.upgraded ? ' · 已升级' : ''; t = `信使：${COURIER_CN[o] || o}${sh}${c.bag.length ? ` · 背包 ${c.bag.length}` : ''}${up}${burst}`; }
   setT(el, t);
 }

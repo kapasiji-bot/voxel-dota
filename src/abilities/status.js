@@ -45,6 +45,10 @@ Object.assign(MODS, {
     onApply(u) { cancelAttack(u, 'root'); interruptChannel(u, 'root'); attachFx(u, 'ice', () => iceBlock(u)); }, onRemove(u) { detachFx(u, 'ice'); } },
   slowed: { id: 'slowed', tag: '减速', color: '#4fc3f7', debuff: true,
     fx(u) { if (Math.random() < 0.25) spawnP(u.x + rnd(-0.5, 0.5), rnd(0.2, 1.2), u.z + rnd(-0.5, 0.5), 0, -0.4, 0, 0.6, 0.15, '#e1f5fe'); } },
+  // B16 Chronosphere pause: stun + silence + disarm (re-applied by the zone each tick)
+  chrono: { id: 'chrono', tag: '时停', color: '#7e57c2', debuff: true, perSource: false, states: ['stunned', 'silenced', 'disarmed'],
+    onApply(u) { cancelAttack(u, 'stun'); cancelCasting(u); interruptChannel(u, 'stun'); },
+    fx(u) { if (Math.random() < 0.35) spawnP(u.x + rnd(-0.5, 0.5), rnd(0.4, u.height || 2), u.z + rnd(-0.5, 0.5), 0, 0.2, 0, 0.5, 0.14, '#b39ddb'); } },
 });
 // stun visual (stars) is attached by the stun modifier's fx
 const _stunFx = MODS.stun.fx;

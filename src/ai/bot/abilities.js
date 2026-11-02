@@ -44,16 +44,16 @@ function botCastOnHero(h, b, s, t, o = {}) {
     }
     if (i.ai.debuffId && getMod(t, i.ai.debuffId)) continue;
     if (i.ai.hpBelow && t.hp / t.maxHp > i.ai.hpBelow) continue;
-    if (i.ai.killDmg) { if (dist > range + 3 || t.hp > i.ai.killDmg(h, ab, t) * 0.9) continue; return !orderCast(h, slot, t); }
+    if (i.ai.killDmg) { if (dist > range + 3 || foeHasSpellBlock(t) || t.hp > i.ai.killDmg(h, ab, t) * 0.9) continue; return !orderCast(h, slot, t); }
     if (i.disable && dis > 0.5 && !i.dmg) continue;               // don't overlap pure disables
-    if (i.finisher) { if (t.hp > lv(i.finisher) || dist > range + 3) continue; return !orderCast(h, slot, t); }
+    if (i.finisher) { if (foeHasSpellBlock(t) || t.hp > lv(i.finisher) || dist > range + 3) continue; return !orderCast(h, slot, t); }
     if (i.global) { if (G.heroes.some(e => e.team !== h.team && !e.dead && knownFoe(h, e) && e.hp < abDamage(h, ab) * 1.05) || t.hp / t.maxHp < 0.45) return !orderCast(h, slot, null); continue; }
     if (i.mana) { if (s.foes.length > 1 || (t.mana || 0) < 60 || h.mana > h.maxMana * 0.6 || dist > range) continue; return !orderCast(h, slot, t); }
     if (i.ult && i.dmg && !i.selfAoe && !i.ai.aoe && t.hp > abDamage(h, ab) * 1.15 + h.dmgMax * 2 && t.hp / t.maxHp > 0.4) continue;   // save ults for kills
     if (i.channel && i.selfAoe) { if (dist > (lv('radius') || 6) * 0.55 || (dis < 1 && s.foes.length < 2) || s.hpPct < 0.45) continue; return !orderCast(h, slot, null); }
     if (i.buff) { if (dist > Math.max(8, h.range + 4)) continue; return !orderCast(h, slot, null); }
     if (i.selfAoe) { if (dist > (lv('radius') || 5) * 0.8) continue; return !orderCast(h, slot, null); }
-    if (i.tgt === 'unit') { if (dist > range + 3) continue; return !orderCast(h, slot, t); }
+    if (i.tgt === 'unit') { if (dist > range + 3 || foeHasSpellBlock(t)) continue; return !orderCast(h, slot, t); }   // B13 Lotus/Linken
     const cp = (lv('castPoint') || 0.2) + (lv('delay') || 0) + (i.tgt === 'direction' ? dist / (lv('speed') || 30) : 0);
     const p = aimErr(b, predictPos(b, t, cp));
     if (i.tgt === 'point') {

@@ -2,11 +2,45 @@
 // entrances near each lane; Dire = Radiant mirrored through the map centre). Sentries go where the team saw an enemy ward
 // being placed (G.wardIntel) or, versus invisible heroes, near the bot's lane position. Visible enemy wards close by are attacked.
 // Only when calm: no visible enemy hero within 14 and HP > 50%. Gives up on a spot after 30 s.
+// B13: dynamicWardSpots — re-score / inject spots from live tower state (push into dead T1, defend threatened T1, river when mid contested).
 const WARD_SPOTS_RAD = [
   { lane: 'mid', x: -10, z: 2 }, { lane: 'top', x: -40, z: -30 }, { lane: 'bot', x: 30, z: 40 },
   { lane: 'mid', x: -26, z: 10 }, { lane: 'top', x: -54, z: -10 }, { lane: 'bot', x: 10, z: 54 },
 ];
-const wardSpots = team => team === RAD ? WARD_SPOTS_RAD : WARD_SPOTS_RAD.map(p => ({ lane: p.lane, x: -p.x, z: -p.z }));
+// Extra river / HG / pit approaches used only when dynamic scoring prefers them
+const WARD_DYN_RAD = [
+  { lane: 'mid', x: 0, z: 0, tag: 'river' }, { lane: 'mid', x: -18, z: 18, tag: 'radiant_hg' },
+  { lane: 'top', x: -48, z: 8, tag: 'top_river' }, { lane: 'bot', x: 8, z: 48, tag: 'bot_river' },
+  { lane: 'mid', x: 14, z: -14, tag: 'rosh_approach' },
+];
+const wardSpotsBase = team => team === RAD ? WARD_SPOTS_RAD : WARD_SPOTS_RAD.map(p => ({ lane: p.lane, x: -p.x, z: -p.z }));
+const wardDynBase = team => team === RAD ? WARD_DYN_RAD : WARD_DYN_RAD.map(p => ({ lane: p.lane, x: -p.x, z: -p.z, tag: p.tag }));
+function laneTowerAlive(team, lane, tier) {
+  return units.some(u => u.kind === 'tower' && !u.dead && u.team === team && u.lane === lane && (u.tier || 1) === tier);
+}
+function dynamicWardSpots(team) {
+  const base = wardSpotsBase(team).map(p => Object.assign({}, p, { score: 1 }));
+  const foe = team === RAD ? DIRE : RAD;
+  for (const p of base) {
+    // push vision: enemy T1 down → prefer that lane's deep spot
+    if (!laneTowerAlive(foe, p.lane, 1)) p.score += 3;
+    // defend: our T1 dead / under threat → prefer our side of that lane
+    if (!laneTowerAlive(team, p.lane, 1)) p.score += 2;
+  }
+  for (const p of wardDynBase(team)) {
+    let score = 0.5;
+    if (p.tag === 'river' || p.tag === 'top_river' || p.tag === 'bot_river') {
+      // mid/river contested when both mid T1 still up past 8 min, or either mid T1 is low HP
+      const mt = units.find(u => u.kind === 'tower' && !u.dead && u.lane === 'mid' && (u.tier || 1) === 1 && u.team === team);
+      if (G.time > 480 || (mt && mt.hp < mt.maxHp * 0.55)) score += 2.5;
+    }
+    if (p.tag === 'rosh_approach' && G.time > 900) score += 2;   // late game Roshan vision
+    if ((p.tag === 'radiant_hg' || p.tag === 'dire_hg') && !laneTowerAlive(team, 'mid', 2)) score += 2;
+    if (score >= 2) base.push(Object.assign({}, p, { score }));
+  }
+  return base.sort((a, c) => c.score - a.score || a.lane.localeCompare(c.lane));
+}
+const wardSpots = team => dynamicWardSpots(team);   // B13: always use scored list (falls back to base scores)
 const ownWardNear = (team, type, x, z, r) => units.some(u => u.isWard && !u.dead && u.team === team && u.ward === type && Math.hypot(u.x - x, u.z - z) < r);
 function botWards(h, b, s) {
   if (s.hpPct < 0.5 || s.foes.some(f => dst(f, h) < 14)) { b.wardGoal = null; return null; }
@@ -22,7 +56,7 @@ function botWards(h, b, s) {
     }
     const ob = itemSlot(h, 'ward_obs'); if (ob < 0) return null;
     const spots = wardSpots(h.team).filter(p => !ownWardNear(h.team, 'obs', p.x, p.z, 12) && !(G.time - (b.wardSkip[p.x + ',' + p.z] || -1e9) < 120) && dst(h, p) < 70)
-      .sort((a, c) => (a.lane !== b.lane) - (c.lane !== b.lane) || dst(h, a) - dst(h, c));
+      .sort((a, c) => (c.score || 0) - (a.score || 0) || (a.lane !== b.lane) - (c.lane !== b.lane) || dst(h, a) - dst(h, c));
     return spots[0] ? { slot: ob, x: spots[0].x, z: spots[0].z, key: spots[0].x + ',' + spots[0].z } : null;
   };
   const w = pick(); if (!w) { b.wardGoal = null; return null; }

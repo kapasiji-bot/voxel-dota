@@ -4,6 +4,8 @@
 //     secret shop; once something is in its bag (bought there via entities/shopsites.js) and nothing more is wanted, deliver;
 //     give up after 60 s waiting.
 function botCourier(h, b) {
+  const c0 = h.courier;
+  if (c0 && !c0.dead && !c0.upgraded && (h.gold || 0) >= COURIER_UPGRADE_COST + 400 && h.level >= 6) courierUpgrade(h);
   const c = h.courier; if (!c || c.dead) return;
   const o = c.corder.type, idle = o === 'idle' || o === 'home';
   if (b.wantSecret) {

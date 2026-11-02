@@ -21,7 +21,7 @@ registerHero({
     armLGlow: [[0, -1.0, 1.05, 0.06, 0.55, 0.7, '#64ffda'], [0, -1.0, -0.15, 0.06, 0.45, 0.45, '#64ffda']],
   }),
   abilities: [
-    { id: 'manabreak', key: 'Q', name: '法力损毁', icon: '损', color: '#1e88e5', passive: true, values: { burn: [25, 35, 45, 55], pct: 0.5 }, fmt: { pct: v => v * 100 + '%' },
+    { id: 'manabreak', shard: { desc: '法力损毁烧蓝 +10。', values: { burn: [35, 45, 55, 65] } }, key: 'Q', name: '法力损毁', icon: '损', color: '#1e88e5', passive: true, values: { burn: [25, 35, 45, 55], pct: 0.5 }, fmt: { pct: v => v * 100 + '%' },
       text: L => `被动：每次攻击燃烧目标 ${L.burn} 点魔法，并额外造成燃烧量 ${L.pct} 的物理伤害。`,
       onAttackLand(c, t) {
         if (t.isBuilding || !t.maxMana) return; const h = c.caster, b = AB.manaBurn(t, c.v('burn')); if (b <= 0) return;

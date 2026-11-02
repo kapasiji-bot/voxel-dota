@@ -44,8 +44,8 @@ function handleLeftTarget(sx, sy) {
     else if (g) { orderSel({ type: 'amove' }, g); clickMarker(g.x, g.z, '#ff3b3b'); }
     return;
   }
-  if (tg.kind === 'item' && tg.mode === 'unit') { const e = useItem(P, tg.slot, u || null); if (e) { err(e); G.targeting = tg; } return; }
-  if (tg.kind === 'item') { if (g) { const e = useItem(P, tg.slot, { x: g.x, z: g.z }); if (e) err(e); } return; }
+  if (tg.kind === 'item' && tg.mode === 'unit') { const e = useItem(tg.owner || P, tg.slot, u || null); if (e) { err(e); G.targeting = tg; } return; }
+  if (tg.kind === 'item') { if (g) { const e = useItem(tg.owner || P, tg.slot, { x: g.x, z: g.z }); if (e) err(e); } return; }
   const e = orderCast(tg.caster || P, tg.slot, tg.mode === 'unit' ? u : g);
   if (e) { err(e); if (tg.mode === 'unit') G.targeting = tg; }
 }
@@ -58,23 +58,27 @@ function pressSkill(i) {
     range: d.target === 'direction' ? 0 : castRange(P, ab) + (d.target === 'unit' ? P.radius : 0), radius: lvVal(d, 'radius', ab.lvl),
     line: d.target === 'direction' ? { len: lvVal(d, 'len', ab.lvl), w: lvVal(d, 'w1', ab.lvl) || 4, w0: d.cone ? lvVal(d, 'w0', ab.lvl) : undefined } : null };
 }
+function invUnit() { const U = ctlActive(); return U && U.items ? U : G.player; }   // B12: bear inventory
 function pressItem(slot) {
-  const P = G.player, it = P.items[slot]; if (!it) return;
+  const P = invUnit(), it = P.items[slot]; if (!it) return;
   const A = it.def.active;
   if (!A) { err('该物品没有主动效果'); return; }
   if (it.cd > 0) { err('物品冷却中'); return; }
-  if (A.target === 'unit') {   // B7: press again = self-cast (ally / any items: Force Staff, Eul's, Glimmer)
+  if (A.target === 'unit') {
     if (G.targeting && G.targeting.kind === 'item' && G.targeting.slot === slot && (A.targetTeam === 'ally' || A.targetTeam === 'any')) { G.targeting = null; const e = useItem(P, slot, P); if (e) err(e); return; }
-    G.targeting = { kind: 'item', slot, mode: 'unit', range: A.range + P.radius };
+    G.targeting = { kind: 'item', slot, mode: 'unit', range: A.range + P.radius, owner: P };
     return;
   }
   if (A.target === 'point') {
-    // optional-point items (TP): pressing the key again while targeting uses the default (fountain)
     if (A.optional && G.targeting && G.targeting.kind === 'item' && G.targeting.slot === slot) { G.targeting = null; const e = useItem(P, slot, null); if (e) err(e); return; }
-    G.targeting = { kind: 'item', slot, mode: 'point', range: A.range, radius: A.radius };   // radius → placement preview circle (wards)
+    G.targeting = { kind: 'item', slot, mode: 'point', range: A.range, radius: A.radius, owner: P };
     if (A.optional) msg('选择传送目标：点击地面或小地图上的友方建筑附近（再按一次 = 泉水）', '#90caf9');
   }
   else { const e = useItem(P, slot, null); if (e) err(e); }
+}
+function pressTransfer(slot) {   // T: give hero item slot → selected owned summon with inventory
+  const P = G.player, U = ctlActive(); if (!P || !U || U === P || !U.invSlots) { err('请先选中战熊等可携带物品的召唤物'); return; }
+  const e = transferItem(P, slot, U); if (e) err(e);
 }
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -107,7 +111,9 @@ addEventListener('keydown', e => {
   const ii = '123456'.indexOf(k);
   if (ii >= 0 && k.length === 1) { if (!G.paused) pressItem(ii); return; }
   switch (k) {
-    case 'b': toggleShop(); break;
+    case 'b': if (P && P.dead) pressBuyback(); else toggleShop(); break;
+    case 'g': pressGlyph(); break;
+    case 't': { const U = ctlActive(); if (U && U.invSlots && U !== P) { const slot = P.items.findIndex(it => it && !it.def.noSell); if (slot >= 0) pressTransfer(slot); else err('英雄物品栏无可转移物品'); } break; }
     case 'a': if (ctlSel().some(u => !u.dead)) G.targeting = { kind: 'amove' }; break;
     case 's': orderSel({ type: 'idle' }); G.targeting = null; break;
     case 'h': orderSel({ type: 'hold' }); break;

@@ -20,7 +20,7 @@ registerHero({
     armL: [[0, -0.4, 0, 0.32, 0.8, 0.36, '#7e57c2'], [0, -0.8, 0, 0.34, 0.2, 0.38, '#9575cd'], [0, -0.85, 0.55, 0.1, 0.12, 0.9, '#cfd8dc']],
   }),
   abilities: [
-    { id: 'smoke', ai: { disable: true }, keepInvis: true, key: 'Q', name: '烟幕', icon: '烟', color: '#7e57c2', target: 'point', range: 11, castPoint: 0.2,
+    { id: 'smoke', ai: { disable: true }, keepInvis: true, shard: { desc: '烟幕半径 +1.5。', values: { radius: 7 } }, key: 'Q', name: '烟幕', icon: '烟', color: '#7e57c2', target: 'point', range: 11, castPoint: 0.2,
       mana: 75, cd: [20, 17, 14, 11], values: { radius: 5.5, dur: [4, 4.5, 5, 5.5], miss: [0.25, 0.35, 0.45, 0.55], slow: 0.15 }, fmt: { miss: v => Math.round(v * 100) + '%', slow: v => Math.round(v * 100) + '%' },
       text: L => `在目标区域释放烟幕（半径 ${L.radius} 码，持续 ${L.dur} 秒）：其中的敌人被沉默、攻击有 ${L.miss} 几率落空，并减速 ${L.slow}。`,
       onCast(c, pt) {

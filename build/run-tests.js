@@ -20,7 +20,7 @@ test('boot: select screen, registry, no errors', async page => {
   const r = await page.evaluate(() => ({ cards: document.querySelectorAll('.card').length, heroes: Object.keys(GameAPI.HERO_DEFS), items: Object.keys(GameAPI.ITEM_DEFS) }));
   assert(r.cards === r.heroes.length && r.heroes.includes('axe') && r.heroes.includes('lina'), 'hero cards ' + JSON.stringify(r));
   assert(!r.heroes.includes('template'), '_template.js must not be bundled');
-  assert(r.items.length === 52 && ['dust', 'tp', 'ward_obs', 'ward_sentry', 'circlet'].every(i => r.items.includes(i)) && r.heroes.length === 21, 'items/heroes ' + r.items + ' ' + r.heroes);
+  assert(r.items.length === 59 && ['dust', 'tp', 'ward_obs', 'ward_sentry', 'circlet', 'smoke', 'desolator', 'satanic', 'linken', 'lotus', 'bloodstone', 'shard'].every(i => r.items.includes(i)) && r.heroes.length === 37, 'items/heroes ' + r.items.length + ' ' + r.heroes.length);
   return `heroes=${r.heroes} items=${r.items}`;
 });
 
@@ -245,6 +245,12 @@ require('./tests/b7.js')({ test, boot, assert });
 require('./tests/b8.js')({ test, boot, assert });
 require('./tests/b9.js')({ test, boot, assert });
 require('./tests/b10.js')({ test, boot, assert });
+require('./tests/b12.js')({ test, boot, assert });
+require('./tests/b13.js')({ test, boot, assert });
+require('./tests/b14.js')({ test, boot, assert });
+require('./tests/b15.js')({ test, boot, assert });
+require('./tests/b16.js')({ test, boot, assert });
+require('./tests/b17.js')({ test, boot, assert });
 require('./tests/fullscreen.js')({ test, boot, assert });
 require('./tests/net.js')({ test, boot, assert });
 

@@ -33,7 +33,7 @@ registerHero({
       onCast(c) { const h = c.caster; for (const w of AB.owned(h, 'lyc_wolf')) { w.expired = true; AB.kill(w, null); }
         for (let i = 0; i < c.v('n'); i++) { const a = h.facing + (i ? 0.8 : -0.8); const w = AB.summon(h, 'lyc_wolf', h.x + Math.sin(a) * 2, h.z + Math.cos(a) * 2, { lvl: c.lvl, hp: c.v('hp'), dmg: [c.v('dmg'), c.v('dmg') + 4], dur: c.v('dur') });
           if (h.order.type === 'attack') issueOrder(w, { type: 'attack', target: h.order.target }); } } },
-    { id: 'howl', key: 'W', name: '嚎叫', icon: '嚎', color: '#8d6e63', target: 'none', castPoint: 0.3,
+    { id: 'howl', shard: { desc: '嚎叫攻击力加成 +8，持续 +2 秒。', values: { dmg: [18, 24, 30, 36], dur: 10 } }, key: 'W', name: '嚎叫', icon: '嚎', color: '#8d6e63', target: 'none', castPoint: 0.3,
       mana: [30, 35, 40, 45], cd: [50, 45, 40, 35], values: { dmg: [10, 16, 22, 28], dur: 8 },
       text: L => `全地图友方英雄攻击力 +${L.dmg}，附近的友方单位（召唤物）获得一半加成，持续 ${L.dur} 秒。`,
       onCast(c) { const h = c.caster;
