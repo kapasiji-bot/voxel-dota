@@ -20,7 +20,7 @@ function botUpdate(h, dt) {
   if (h.channel && botKeepChannel(h, b, s)) return;   // ai/bot/ults.js: keep / stop channels
   if (h.channel) return;
   if (b.combo && !b.retreat && botComboStep(h, b, s)) return;   // ai/bot/combos.js: finish a running combo first
-  botShop(h, b); botSmokeBuy(h, b); botCourier(h, b);   // ai/bot/courier.js (B8)
+  botShop(h, b); botSmokeBuy(h, b); botCourier(h, b); botGift(h, b);   // ai/bot/courier.js (B8); ai/bot/gift.js
   if (botGlyph(h, b)) return;
   botUnits(h, b, s);   // ai/bot/units.js: own summons / illusions
   botToggles(h, b, s);  // ai/bot/ults.js: Voodoo Restoration on / off

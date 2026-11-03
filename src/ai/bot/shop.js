@@ -11,7 +11,7 @@ const BOT_BUILDS = {   // B7: supports Mek / Force / Glimmer / Pipe / Eul's; car
   tank: ['phase', 'vanguard', 'blink', 'heart', 'linken', 'scepter'],
   support: ['arcane', 'mekansm', 'force', 'glimmer', 'lotus', 'greaves'],
 };
-const BOT_EXTRA = { carry: ['butterfly', 'mkb', 'assault'], tank: ['assault', 'bkb', 'pipe'], support: ['euls', 'orchid', 'scythe', 'refresher', 'octarine', 'scepter'] };
+const BOT_EXTRA = { carry: ['butterfly', 'mkb', 'assault'], tank: ['assault', 'bkb', 'pipe'], support: ['euls', 'orchid', 'scythe', 'refresher', 'octarine', 'shard', 'scepter'] };
 const BOT_UTIL = { tp: 1, salve: 1, dust: 1, ward_obs: 1, ward_sentry: 1, smoke: 1 };
 const botRole = h => (h.def.ai && h.def.ai.role) || (h.def.stats.primary === 'int' ? 'support' : h.def.stats.primary === 'str' ? 'tank' : 'carry');
 const botBuild = h => ((h.def.ai && (h.def.ai.build || h.def.ai.items)) || BOT_BUILDS[botRole(h)]).concat(BOT_EXTRA[botRole(h)]);

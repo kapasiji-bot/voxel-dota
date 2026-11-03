@@ -44,6 +44,7 @@ function handleLeftTarget(sx, sy) {
     else if (g) { orderSel({ type: 'amove' }, g); clickMarker(g.x, g.z, '#ff3b3b'); }
     return;
   }
+  if (tg.kind === 'gift') { resolveGiftClick(sx, sy, tg); return; }
   if (tg.kind === 'item' && tg.mode === 'unit') { const e = useItem(tg.owner || P, tg.slot, u || null); if (e) { err(e); G.targeting = tg; } return; }
   if (tg.kind === 'item') { if (g) { const e = useItem(tg.owner || P, tg.slot, { x: g.x, z: g.z }); if (e) err(e); } return; }
   const e = orderCast(tg.caster || P, tg.slot, tg.mode === 'unit' ? u : g);
@@ -113,7 +114,7 @@ addEventListener('keydown', e => {
   switch (k) {
     case 'b': if (P && P.dead) pressBuyback(); else toggleShop(); break;
     case 'g': pressGlyph(); break;
-    case 't': { const U = ctlActive(); if (U && U.invSlots && U !== P) { const slot = P.items.findIndex(it => it && !it.def.noSell); if (slot >= 0) pressTransfer(slot); else err('英雄物品栏无可转移物品'); } break; }
+    case 't': { const U = ctlActive(); if (U && U.invSlots && U !== P) { const slot = P.items.findIndex(it => it && !it.def.noSell); if (slot >= 0) pressTransfer(slot); else err('英雄物品栏无可转移物品'); } else pressGift(); break; }
     case 'a': if (ctlSel().some(u => !u.dead)) G.targeting = { kind: 'amove' }; break;
     case 's': orderSel({ type: 'idle' }); G.targeting = null; break;
     case 'h': orderSel({ type: 'hold' }); break;

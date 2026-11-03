@@ -118,7 +118,7 @@ const HELP_HTML = `<div style="color:#ffd54f;font-size:16px;font-weight:bold;mar
 <b>S</b>停止　　<b style="min-width:0">H</b>　原地待命<br>
 <b>1 - 6</b>使用物品栏物品（右键物品出售）<br>
 <b>B</b>打开 / 关闭商店（阵亡时 = 买活）　<b>G</b>防御符文<br>
-<b>T</b>将英雄一件物品交给当前选中的战熊<br>
+<b>T</b>战熊选中时移交物品；否则进入神杖/魔晶赠予瞄准（点友军，远处由信使运送）<br>
 <b>方向键 / 鼠标移到屏幕边缘</b>移动镜头<br>
 <b>空格</b>镜头回到英雄（按住跟随）　<b style="min-width:0">Y</b> 锁定镜头<br>
 <b>鼠标滚轮</b>缩放镜头<br>

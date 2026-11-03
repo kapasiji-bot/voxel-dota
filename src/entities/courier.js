@@ -73,9 +73,15 @@ function courierAI(c, dt) {
     while (st.length && c.bag.length < COURIER_BAG) c.bag.push(st.shift());
     o.phase = 'bring';
   }
-  if (!c.bag.length) { c.corder = { type: 'home' }; return; }
-  if (h.dead) { courierFly(c, ...Object.values(courierHome(c.team)), dt, 1.5); return; }   // wait at home until the hero respawns
-  if (courierFly(c, h.x, h.z, dt, 1.8)) { courierHandOver(c, h); c.corder = { type: 'home' }; }
+  if (!c.bag.length) { c.giftTo = null; c.corder = { type: 'home' }; return; }
+  // polish batch 2: giftTo = ally hero receiving Scepter/Shard from this courier
+  const dst = (c.giftTo && !c.giftTo.dead && c.giftTo.team === c.team) ? c.giftTo : h;
+  if (dst.dead) { courierFly(c, ...Object.values(courierHome(c.team)), dt, 1.5); return; }
+  if (courierFly(c, dst.x, dst.z, dt, 1.8)) {
+    courierHandOver(c, dst);
+    if (c.giftTo === dst) c.giftTo = null;
+    c.corder = { type: 'home' };
+  }
 }
 function courierDeath(c, killer) {
   const h = c.owner, kh = ownerOf(killer);

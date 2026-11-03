@@ -12,7 +12,7 @@ const MANIFEST = [
   'combat/damage.js', 'combat/kills.js', 'combat/attack.js', 'combat/targeting.js', 'combat/movement.js',
   'abilities/cast.js', 'abilities/channel.js', 'abilities/aura.js', 'abilities/api.js', 'abilities/combo.js', 'abilities/mobility.js', 'abilities/cc.js', 'abilities/summon.js', 'abilities/toggle.js', 'abilities/displace.js', 'abilities/orb.js', 'abilities/shapes.js', 'abilities/scepter.js', 'abilities/shard.js', 'abilities/reincarnate.js',
   'ai/creep.js', 'ai/neutral.js', 'ai/tower.js', 'ai/hero.js', 'ai/bot/*',
-  'ui/messages.js', 'ui/camera.js', 'ui/input.js', 'ui/control.js', 'render/indicators.js', 'ui/minimap.js', 'ui/minimapjungle.js', 'ui/overlay.js', 'ui/tooltip.js', 'ui/hud.js', 'ui/death.js', 'ui/glyph.js', 'ui/shop.js', 'ui/courier.js', 'ui/select.js', 'ui/channelbar.js', 'ui/killfeed.js', 'ui/scoreboard.js', 'ui/options.js', 'ui/announce.js', 'ui/fullscreen.js', 'ui/pointerlock.js', 'ui/vcursor.js',
+  'ui/messages.js', 'ui/camera.js', 'ui/input.js', 'ui/gift.js', 'ui/control.js', 'render/indicators.js', 'ui/minimap.js', 'ui/minimapjungle.js', 'ui/overlay.js', 'ui/tooltip.js', 'ui/hud.js', 'ui/death.js', 'ui/glyph.js', 'ui/shop.js', 'ui/courier.js', 'ui/select.js', 'ui/channelbar.js', 'ui/killfeed.js', 'ui/scoreboard.js', 'ui/options.js', 'ui/announce.js', 'ui/fullscreen.js', 'ui/pointerlock.js', 'ui/vcursor.js',
   'audio/synth.js', 'audio/engine.js', 'audio/sounds.js', 'audio/spells.js', 'audio/hooks.js', 'audio/ambience.js',
   'core/loop.js', 'debug/api.js', 'debug/api2.js',
   // B11 LAN multiplayer (explicit order: later files register NET_H handlers at load time)

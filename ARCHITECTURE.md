@@ -233,6 +233,12 @@ modifiers tick → `tickInvis` → AI (creep/tower/hero orders) → `updateCasti
 - **Guardian Greaves**: Mekansm + Arcane Boots (boots `uniqueGroup`); heal + mana + self purge. Bot supports buy Greaves / Orchid / Refresher / Octarine (`ai/bot/shop.js`, `actives.js`).
 - **Verify**: `node build/build.js && node build/run-tests.js B19`; screenshots via `node build/shots-b19.js`.
 
+## Items polish batch 2 — Scepter / Shard gifting
+- **`giftItem` / `giftViaCourier`** (`entities/inventory.js`): only items with `def.giftable` (Scepter + Shard). Same-team living heroes (not illusions); reject if ally already owns one or inventory full. In range (`GIFT_RANGE` 8) moves the slot like `transferItem` and emits `gift` (refresh applies scepter/shard). Out of range issues order `gift` (`ai/hero.js` walks then gifts). Far targeting uses the giver's courier: bag load + `c.giftTo` + deliver (`entities/courier.js` hands over to the ally, then home).
+- **UX**: **T** with Spirit Bear selected still transfers any item; otherwise `ui/gift.js` enters gift targeting — left-click ally (far = courier). HELP updated.
+- **Bots**: `ai/bot/gift.js` — supports gift owned scepter/shard to the team's carry (courier if far); `BOT_EXTRA.support` includes `shard`.
+- **Verify**: `node build/build.js && node build/run-tests.js B20`; screenshots via `node build/shots-b20.js`.
+
 ## Adding an item
 Create `src/items/<id>.js` containing `registerItem({id, order, name, en?, icon, cost, desc, parts?, cat?, props?:{str,agi,int,dmg,armor,as,ms,hp,mana,hpRegen,manaRegen,magicRes,evasion,trueStrike,cdReduc,spellLifesteal,...}, unique?, consumable?, tick?, modifyAttack?, onAttackLand?, active?:{target:'none'|'unit'|'point', targetTeam?, range?, cd, mana?, onUse(ctx, target)}})`. It shows up in the shop (tab from `itemCat`) automatically; add it to a bot build (`BOT_BUILDS` or hero `ai.build`) and, for actives, a rule in `ai/bot/actives.js`.
 
@@ -297,6 +303,7 @@ Hero scenarios live in `build/tests/*.js` and are required by `run-tests.js`; pe
 | B9: `AU`, `SOUNDS`, `SPELL_SFX`, `spellFamily`, `auPlay`, `auUnlock`, `auSetMuted`, `auSave`, `auLoad`, `auSpatial`, `toggleOptions`, `toggleMute`, `announce`, `tickAudio`, `audioLog(on)`, `audioReset()`; B10: `DIFFS`, `unitById`, `teamPlan`, `teamTick`, `setPlan`, `teamAdv`, `knownEnemies`, `pickPushTarget`, `rallyFor`, `startPush`, `assignGank`, `teamDive`, `teamDest`, `roshReady`, `botTeam`, `cheeseTaker`, `aegisTaker` (debug/api2.js) | sound + team AI |
 | B11: `NET`, `LOB`, `LS`, `RNG`, `sdpParse`, `sdpBuild`, `encodeCode`, `decodeCode`, `stateHash`, `netStartGame`, `netSetPause`, `togglePause`, `chatSend`, `invNew`, `lobbyAct`, `netOrder`, `netCast`, `netLearn`, `netAutoplay(on)`, `netBuy`, `netUse`, `netNoRender(on)`, `netSpeed(x)` (host), `netUnits()`, `netHeroes()`, `netKill()`, `netInfo()` (net/debugnet.js) | LAN tests |
 | B12: `buybackCost`, `buybackReady`, `canBuyback`, `doBuyback`, `BB_CD`, `castGlyph`, `glyphReady`, `glyphActive`, `glyphState`, `GLYPH_CD`, `GLYPH_DUR`, `pressGlyph`, `pressBuyback`, `trySpellBlock`, `hasShard`, `applyShard`, `transferItem` (debug/api2.js) | buyback / glyph / Linken / Shard |
+| Batch 2: `giftItem`, `giftViaCourier`, `isGiftable`, `giftTargetError`, `GIFT_RANGE`, `botGift`, `giftCarry` | Scepter/Shard ally gifting |
 | B13: `courierUpgrade`, `COURIER_BURST_*`, `COURIER_UPGRADE_*`, `dynamicWardSpots`, `foeHasSpellBlock`, `needsBkbChannel`, `botPopBkb` (debug/api2.js) | courier burst/upgrade / wards / item-aware bots |
 | `renderInfo()`, `setShadows(on)` | render one frame → `{calls, tris, geos, objs, ms, particles, projectiles, effects, timers, units, live}` |
 | `G`, `units`, `HERO_DEFS`, `ITEM_DEFS`, `Events` | raw access |

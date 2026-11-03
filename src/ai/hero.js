@@ -34,6 +34,15 @@ function heroAI(h, dt) {
       break;
     }
     case 'cast': stepCastOrder(h, o, dt); break;
+    case 'gift': {   // polish batch 2: walk into range, then gift Scepter/Shard
+      const it = h.items[o.slot]; if (!it || !isGiftable(it)) { h.order = { type: h.bot ? 'stand' : 'idle' }; break; }
+      if (giftTargetError(h, o.target)) { h.order = { type: h.bot ? 'stand' : 'idle' }; break; }
+      if (dst(h, o.target) <= o.range + h.radius + o.target.radius) {
+        h.order = { type: h.bot ? 'stand' : 'idle' };
+        const e = giftItem(h, o.slot, o.target); if (e && h === G.player) err(e);
+      } else heroNav(h, o.target.x, o.target.z, dt, 0);
+      break;
+    }
     case 'useItem': {   // point item with a range (wards) / unit item (Dagon, Force Staff, ...): walk into range, then use
       const it = h.items[o.slot]; if (!it) { h.order = { type: h.bot ? 'stand' : 'idle' }; break; }
       if (o.target) {

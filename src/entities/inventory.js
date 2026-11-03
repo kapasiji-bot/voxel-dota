@@ -126,3 +126,56 @@ function transferItem(from, slot, to) {
   if (from === G.player || to.owner === G.player) msg(`将 ${it.def.name} 交给 ${to.name}`, '#ffd54f');
   return null;
 }
+// Ally gifting (polish batch 2): Scepter / Shard only. Walk into range like unit-target items, or giftViaCourier.
+const GIFT_RANGE = 8;
+const isGiftable = it => !!(it && it.def && (it.def.giftable || it.def.scepter || it.def.shard));
+function giftTargetError(from, to) {
+  if (!from || !to) return '无效目标';
+  if (!to.isHero || to.isIllusion) return '只能赠予友方英雄';
+  if (to === from) return '不能赠予自己';
+  if (to.team !== from.team) return '只能赠予友方英雄';
+  if (to.dead) return '目标已阵亡';
+  return null;
+}
+function applyGiftMove(from, slot, to) {
+  const it = from.items[slot]; if (!it) return '空物品栏';
+  const dstSlot = to.items.indexOf(null); if (dstSlot < 0) return '目标物品栏已满';
+  to.items[dstSlot] = it; from.items[slot] = null;
+  refreshHero(from); refreshHero(to);
+  emit('gift', { from: from.id, to: to.id, item: it.id });
+  if (from === G.player || to === G.player) msg(`将 ${it.def.name} 赠予 ${to.def ? to.def.name : to.name}`, '#80d8ff');
+  return null;
+}
+function giftItem(from, slot, to) {
+  if (!from || !from.items || !to || !to.items) return '无法赠予';
+  const it = from.items[slot]; if (!it) return '空物品栏';
+  if (!isGiftable(it)) return '该物品无法赠予（仅神杖/魔晶）';
+  const te = giftTargetError(from, to); if (te) return te;
+  if (countItem(to, it.id) > 0) return `对方已有 ${it.def.name}`;
+  if (to.items.indexOf(null) < 0) return '目标物品栏已满';
+  if (dst(from, to) > GIFT_RANGE + from.radius + to.radius + 0.3) {
+    if (from.order.type !== 'gift' || from.order.slot !== slot || from.order.target !== to) issueOrder(from, { type: 'gift', slot, target: to, range: GIFT_RANGE });
+    return null;
+  }
+  return applyGiftMove(from, slot, to);
+}
+// Put giftable into own courier bag and deliver to an ally (entities/courier.js reads c.giftTo).
+function giftViaCourier(from, slot, to) {
+  if (!from || !from.items) return '无法赠予';
+  const it = from.items[slot]; if (!it) return '空物品栏';
+  if (!isGiftable(it)) return '该物品无法赠予（仅神杖/魔晶）';
+  const te = giftTargetError(from, to); if (te) return te;
+  if (countItem(to, it.id) > 0) return `对方已有 ${it.def.name}`;
+  const c = from.courier; if (!c || c.dead) return '没有可用信使';
+  if (c.bag.length >= COURIER_BAG) return '信使背包已满';
+  const id = it.id, name = it.def.name;
+  from.items[slot] = null; refreshHero(from);
+  courierBagAdd(c, id);
+  c.giftTo = to;
+  c.corder = { type: 'deliver', phase: 'bring', t0: G.time };
+  c.burstUntil = G.time + COURIER_BURST_DUR;
+  emit('giftCourier', { from: from.id, to: to.id, item: id, unit: c.id });
+  emit('courierBurst', { unit: c.id, owner: from.id, until: c.burstUntil });
+  if (from === G.player) msg(`信使运送 ${name} → ${to.def ? to.def.name : to.name}`, '#80d8ff');
+  return null;
+}

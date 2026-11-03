@@ -343,7 +343,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = 'a08f708fab';
+const BUILD_ID = 'aebcef3085';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -1907,6 +1907,59 @@ function transferItem(from, slot, to) {
   if (from === G.player || to.owner === G.player) msg(`将 ${it.def.name} 交给 ${to.name}`, '#ffd54f');
   return null;
 }
+// Ally gifting (polish batch 2): Scepter / Shard only. Walk into range like unit-target items, or giftViaCourier.
+const GIFT_RANGE = 8;
+const isGiftable = it => !!(it && it.def && (it.def.giftable || it.def.scepter || it.def.shard));
+function giftTargetError(from, to) {
+  if (!from || !to) return '无效目标';
+  if (!to.isHero || to.isIllusion) return '只能赠予友方英雄';
+  if (to === from) return '不能赠予自己';
+  if (to.team !== from.team) return '只能赠予友方英雄';
+  if (to.dead) return '目标已阵亡';
+  return null;
+}
+function applyGiftMove(from, slot, to) {
+  const it = from.items[slot]; if (!it) return '空物品栏';
+  const dstSlot = to.items.indexOf(null); if (dstSlot < 0) return '目标物品栏已满';
+  to.items[dstSlot] = it; from.items[slot] = null;
+  refreshHero(from); refreshHero(to);
+  emit('gift', { from: from.id, to: to.id, item: it.id });
+  if (from === G.player || to === G.player) msg(`将 ${it.def.name} 赠予 ${to.def ? to.def.name : to.name}`, '#80d8ff');
+  return null;
+}
+function giftItem(from, slot, to) {
+  if (!from || !from.items || !to || !to.items) return '无法赠予';
+  const it = from.items[slot]; if (!it) return '空物品栏';
+  if (!isGiftable(it)) return '该物品无法赠予（仅神杖/魔晶）';
+  const te = giftTargetError(from, to); if (te) return te;
+  if (countItem(to, it.id) > 0) return `对方已有 ${it.def.name}`;
+  if (to.items.indexOf(null) < 0) return '目标物品栏已满';
+  if (dst(from, to) > GIFT_RANGE + from.radius + to.radius + 0.3) {
+    if (from.order.type !== 'gift' || from.order.slot !== slot || from.order.target !== to) issueOrder(from, { type: 'gift', slot, target: to, range: GIFT_RANGE });
+    return null;
+  }
+  return applyGiftMove(from, slot, to);
+}
+// Put giftable into own courier bag and deliver to an ally (entities/courier.js reads c.giftTo).
+function giftViaCourier(from, slot, to) {
+  if (!from || !from.items) return '无法赠予';
+  const it = from.items[slot]; if (!it) return '空物品栏';
+  if (!isGiftable(it)) return '该物品无法赠予（仅神杖/魔晶）';
+  const te = giftTargetError(from, to); if (te) return te;
+  if (countItem(to, it.id) > 0) return `对方已有 ${it.def.name}`;
+  const c = from.courier; if (!c || c.dead) return '没有可用信使';
+  if (c.bag.length >= COURIER_BAG) return '信使背包已满';
+  const id = it.id, name = it.def.name;
+  from.items[slot] = null; refreshHero(from);
+  courierBagAdd(c, id);
+  c.giftTo = to;
+  c.corder = { type: 'deliver', phase: 'bring', t0: G.time };
+  c.burstUntil = G.time + COURIER_BURST_DUR;
+  emit('giftCourier', { from: from.id, to: to.id, item: id, unit: c.id });
+  emit('courierBurst', { unit: c.id, owner: from.id, until: c.burstUntil });
+  if (from === G.player) msg(`信使运送 ${name} → ${to.def ? to.def.name : to.name}`, '#80d8ff');
+  return null;
+}
 
 // ===== entities/shop.js =====
 // entities/shop.js — DOTA shop rule + stash + team stock.
@@ -2395,9 +2448,15 @@ function courierAI(c, dt) {
     while (st.length && c.bag.length < COURIER_BAG) c.bag.push(st.shift());
     o.phase = 'bring';
   }
-  if (!c.bag.length) { c.corder = { type: 'home' }; return; }
-  if (h.dead) { courierFly(c, ...Object.values(courierHome(c.team)), dt, 1.5); return; }   // wait at home until the hero respawns
-  if (courierFly(c, h.x, h.z, dt, 1.8)) { courierHandOver(c, h); c.corder = { type: 'home' }; }
+  if (!c.bag.length) { c.giftTo = null; c.corder = { type: 'home' }; return; }
+  // polish batch 2: giftTo = ally hero receiving Scepter/Shard from this courier
+  const dst = (c.giftTo && !c.giftTo.dead && c.giftTo.team === c.team) ? c.giftTo : h;
+  if (dst.dead) { courierFly(c, ...Object.values(courierHome(c.team)), dt, 1.5); return; }
+  if (courierFly(c, dst.x, dst.z, dt, 1.8)) {
+    courierHandOver(c, dst);
+    if (c.giftTo === dst) c.giftTo = null;
+    c.corder = { type: 'home' };
+  }
 }
 function courierDeath(c, killer) {
   const h = c.owner, kh = ownerOf(killer);
@@ -3503,6 +3562,15 @@ function heroAI(h, dt) {
       break;
     }
     case 'cast': stepCastOrder(h, o, dt); break;
+    case 'gift': {   // polish batch 2: walk into range, then gift Scepter/Shard
+      const it = h.items[o.slot]; if (!it || !isGiftable(it)) { h.order = { type: h.bot ? 'stand' : 'idle' }; break; }
+      if (giftTargetError(h, o.target)) { h.order = { type: h.bot ? 'stand' : 'idle' }; break; }
+      if (dst(h, o.target) <= o.range + h.radius + o.target.radius) {
+        h.order = { type: h.bot ? 'stand' : 'idle' };
+        const e = giftItem(h, o.slot, o.target); if (e && h === G.player) err(e);
+      } else heroNav(h, o.target.x, o.target.z, dt, 0);
+      break;
+    }
     case 'useItem': {   // point item with a range (wards) / unit item (Dagon, Force Staff, ...): walk into range, then use
       const it = h.items[o.slot]; if (!it) { h.order = { type: h.bot ? 'stand' : 'idle' }; break; }
       if (o.target) {
@@ -3750,7 +3818,7 @@ function botUpdate(h, dt) {
   if (h.channel && botKeepChannel(h, b, s)) return;   // ai/bot/ults.js: keep / stop channels
   if (h.channel) return;
   if (b.combo && !b.retreat && botComboStep(h, b, s)) return;   // ai/bot/combos.js: finish a running combo first
-  botShop(h, b); botSmokeBuy(h, b); botCourier(h, b);   // ai/bot/courier.js (B8)
+  botShop(h, b); botSmokeBuy(h, b); botCourier(h, b); botGift(h, b);   // ai/bot/courier.js (B8); ai/bot/gift.js
   if (botGlyph(h, b)) return;
   botUnits(h, b, s);   // ai/bot/units.js: own summons / illusions
   botToggles(h, b, s);  // ai/bot/ults.js: Voodoo Restoration on / off
@@ -3998,6 +4066,28 @@ function pickFightTarget(h, b, s) {
   const style = (h.level >= 6 && h.def.ai && h.def.ai.aggr) || 1;   // per-hero hint (from level 6), e.g. Anti-Mage
   const early = h.level < 4 ? 0.85 : 1;   // early laning: only take clearly favourable trades
   return killable || myP * sneak * style * early * (0.55 + b.d.aggr) > foeP ? t : null;
+}
+
+// ===== ai/bot/gift.js =====
+// ai/bot/gift.js — supports gift Scepter / Shard to the team's carry when gold bought one.
+function giftCarry(team) {
+  return G.heroes.filter(h => h.team === team && !h.dead && h.isHero && !h.isIllusion)
+    .sort((a, c) => (botRole(c) === 'carry') - (botRole(a) === 'carry') || c.level - a.level || (c.gold || 0) - (a.gold || 0))[0] || null;
+}
+function botGift(h, b) {
+  if (!h || h.dead || botRole(h) !== 'support') return false;
+  if (h.channel || h.casting) return false;
+  const carry = giftCarry(h.team); if (!carry || carry === h) return false;
+  for (const id of ['scepter', 'shard']) {
+    const slot = h.items.findIndex(it => it && it.id === id);
+    if (slot < 0) continue;
+    if (countItem(carry, id) > 0) continue;
+    if (carry.items.indexOf(null) < 0) continue;
+    const far = dst(h, carry) > GIFT_RANGE + 6;
+    const e = (far && h.courier && !h.courier.dead) ? giftViaCourier(h, slot, carry) : giftItem(h, slot, carry);
+    if (!e) { b.gifts = (b.gifts || 0) + 1; emit('botGift', { from: h.id, to: carry.id, item: id }); return true; }
+  }
+  return false;
 }
 
 // ===== ai/bot/glyph.js =====
@@ -4330,7 +4420,7 @@ const BOT_BUILDS = {   // B7: supports Mek / Force / Glimmer / Pipe / Eul's; car
   tank: ['phase', 'vanguard', 'blink', 'heart', 'linken', 'scepter'],
   support: ['arcane', 'mekansm', 'force', 'glimmer', 'lotus', 'greaves'],
 };
-const BOT_EXTRA = { carry: ['butterfly', 'mkb', 'assault'], tank: ['assault', 'bkb', 'pipe'], support: ['euls', 'orchid', 'scythe', 'refresher', 'octarine', 'scepter'] };
+const BOT_EXTRA = { carry: ['butterfly', 'mkb', 'assault'], tank: ['assault', 'bkb', 'pipe'], support: ['euls', 'orchid', 'scythe', 'refresher', 'octarine', 'shard', 'scepter'] };
 const BOT_UTIL = { tp: 1, salve: 1, dust: 1, ward_obs: 1, ward_sentry: 1, smoke: 1 };
 const botRole = h => (h.def.ai && h.def.ai.role) || (h.def.stats.primary === 'int' ? 'support' : h.def.stats.primary === 'str' ? 'tank' : 'carry');
 const botBuild = h => ((h.def.ai && (h.def.ai.build || h.def.ai.items)) || BOT_BUILDS[botRole(h)]).concat(BOT_EXTRA[botRole(h)]);
@@ -4888,6 +4978,7 @@ function handleLeftTarget(sx, sy) {
     else if (g) { orderSel({ type: 'amove' }, g); clickMarker(g.x, g.z, '#ff3b3b'); }
     return;
   }
+  if (tg.kind === 'gift') { resolveGiftClick(sx, sy, tg); return; }
   if (tg.kind === 'item' && tg.mode === 'unit') { const e = useItem(tg.owner || P, tg.slot, u || null); if (e) { err(e); G.targeting = tg; } return; }
   if (tg.kind === 'item') { if (g) { const e = useItem(tg.owner || P, tg.slot, { x: g.x, z: g.z }); if (e) err(e); } return; }
   const e = orderCast(tg.caster || P, tg.slot, tg.mode === 'unit' ? u : g);
@@ -4957,7 +5048,7 @@ addEventListener('keydown', e => {
   switch (k) {
     case 'b': if (P && P.dead) pressBuyback(); else toggleShop(); break;
     case 'g': pressGlyph(); break;
-    case 't': { const U = ctlActive(); if (U && U.invSlots && U !== P) { const slot = P.items.findIndex(it => it && !it.def.noSell); if (slot >= 0) pressTransfer(slot); else err('英雄物品栏无可转移物品'); } break; }
+    case 't': { const U = ctlActive(); if (U && U.invSlots && U !== P) { const slot = P.items.findIndex(it => it && !it.def.noSell); if (slot >= 0) pressTransfer(slot); else err('英雄物品栏无可转移物品'); } else pressGift(); break; }
     case 'a': if (ctlSel().some(u => !u.dead)) G.targeting = { kind: 'amove' }; break;
     case 's': orderSel({ type: 'idle' }); G.targeting = null; break;
     case 'h': orderSel({ type: 'hold' }); break;
@@ -4968,6 +5059,30 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; keys[k] = false; if (k === 'Tab') showScoreboard(false); });
 
+
+// ===== ui/gift.js =====
+// ui/gift.js — T (no summon selected): gift Aghanim's Scepter / Shard to an ally hero.
+// In range → giftItem; far click → giftViaCourier when a live courier exists. Keeps ui/input.js small.
+function pressGift() {
+  const P = G.player; if (!P || P.dead) return;
+  if (G.targeting && G.targeting.kind === 'gift') { G.targeting = null; return; }
+  const slot = P.items.findIndex(it => isGiftable(it));
+  if (slot < 0) { err('物品栏没有可赠予的神杖/魔晶'); return; }
+  G.targeting = { kind: 'gift', slot, mode: 'unit', range: GIFT_RANGE + P.radius, owner: P };
+  msg('选择友方英雄赠予神杖/魔晶（远处 = 信使运送；再按 T / Esc 取消）', '#80d8ff');
+}
+function resolveGiftClick(sx, sy, tg) {
+  const P = (tg && tg.owner) || G.player; if (!P || P.dead) return;
+  const slot = tg.slot;
+  const it = P.items[slot]; if (!it || !isGiftable(it)) { err('没有可赠予物品'); return; }
+  const u = pickUnit(sx, sy, true);
+  if (!u) { err('需要友方英雄目标'); return; }
+  const te = giftTargetError(P, u); if (te) { err(te); return; }
+  const need = GIFT_RANGE + P.radius + u.radius;
+  const far = dst(P, u) > need * 2.2;
+  const e = (far && P.courier && !P.courier.dead) ? giftViaCourier(P, slot, u) : giftItem(P, slot, u);
+  if (e) err(e);
+}
 
 // ===== ui/control.js =====
 // ui/control.js — player unit control: selection (click / Shift+click / box drag), the active unit (HUD + QWER), control groups.
@@ -5383,7 +5498,7 @@ const HELP_HTML = `<div style="color:#ffd54f;font-size:16px;font-weight:bold;mar
 <b>S</b>停止　　<b style="min-width:0">H</b>　原地待命<br>
 <b>1 - 6</b>使用物品栏物品（右键物品出售）<br>
 <b>B</b>打开 / 关闭商店（阵亡时 = 买活）　<b>G</b>防御符文<br>
-<b>T</b>将英雄一件物品交给当前选中的战熊<br>
+<b>T</b>战熊选中时移交物品；否则进入神杖/魔晶赠予瞄准（点友军，远处由信使运送）<br>
 <b>方向键 / 鼠标移到屏幕边缘</b>移动镜头<br>
 <b>空格</b>镜头回到英雄（按住跟随）　<b style="min-width:0">Y</b> 锁定镜头<br>
 <b>鼠标滚轮</b>缩放镜头<br>
@@ -6357,7 +6472,7 @@ Object.assign(GameAPI, {
   // B12 mid-game polish
   buybackCost, buybackReady, canBuyback, doBuyback, BB_CD,
   castGlyph, glyphReady, glyphActive, glyphState, GLYPH_CD, GLYPH_DUR, pressGlyph, pressBuyback, updateDeathUI,
-  trySpellBlock, hasShard, applyShard, transferItem, tickSmoke, breakSmokeGroup: typeof clearSmokeTeam === 'function' ? clearSmokeTeam : undefined,
+  trySpellBlock, hasShard, applyShard, transferItem, giftItem, giftViaCourier, isGiftable, giftTargetError, GIFT_RANGE, botGift, giftCarry, tickSmoke, breakSmokeGroup: typeof clearSmokeTeam === 'function' ? clearSmokeTeam : undefined,
   botBuyback, botGlyph, botSmokeBuy, botSmokeUse, botFarmer, emptyLane,
   // B13 polish: shard coverage helpers, item-aware bot prep, courier burst/upgrade, dynamic wards
   courierUpgrade, courierOrder, spawnCourier, COURIER_SPEED, COURIER_BURST_MULT, COURIER_BURST_DUR, COURIER_UPGRADE_COST, COURIER_UPGRADE_MULT,
@@ -10505,9 +10620,9 @@ registerItem({ id: 'cheese', order: 96, name: '奶酪', en: 'Cheese', icon: '酪
 // ===== items/aghanim.js =====
 // items/aghanim.js — 阿哈利姆神杖 Aghanim's Scepter: stats + upgrades the holder's ultimate. The upgrade itself lives in each
 // hero file (ability field `scepter`, see abilities/scepter.js); def.scepter marks the item. Not unique-stat: one is enough.
-registerItem({ id: 'scepter', order: 41, name: '阿哈利姆神杖', en: "Aghanim's Scepter", icon: '杖', color: '#1e88e5', cost: 4200, scepter: true, unique: true,
+registerItem({ id: 'scepter', order: 41, name: '阿哈利姆神杖', en: "Aghanim's Scepter", icon: '杖', color: '#1e88e5', cost: 4200, scepter: true, unique: true, giftable: true,
   parts: ['point_booster', 'ogre', 'blade', 'staff'], props: { str: 10, agi: 10, int: 10, hp: 175, mana: 175 },
-  desc: '精气之球 + 食人魔之斧 + 欢欣之刃 + 魔力法杖。+10 全属性，+175 生命值，+175 魔法值。被动·升级：强化持有者的终极技能（每个英雄效果不同，见技能说明中的“阿哈利姆神杖”）。' });
+  desc: '精气之球 + 食人魔之斧 + 欢欣之刃 + 魔力法杖。+10 全属性，+175 生命值，+175 魔法值。被动·升级：强化持有者的终极技能（每个英雄效果不同，见技能说明中的“阿哈利姆神杖”）。可按 T 赠予友方英雄（远处由信使运送）。' });
 
 // ===== items/bkb.js =====
 // items/bkb.js — 黑皇杖: +10 str +24 dmg; active magic immunity (purges debuffs, blocks magic dmg/stuns/slows) + 25% less damage (prototype tweak).
@@ -10981,8 +11096,8 @@ registerItem({ id: 'scythe', order: 46, name: '邪恶镰刀', en: 'Scythe of Vys
 // items/shard.js — B12 阿哈利姆魔晶 Aghanim's Shard. Cheaper scepter-lite: stats + unlocks ability `shard` upgrades
 // (abilities/shard.js). One per hero (unique).
 registerItem({ id: 'shard', order: 57, name: '阿哈利姆魔晶', en: "Aghanim's Shard", icon: '晶', color: '#5c6bc0', cost: 1400,
-  shard: true, unique: true, props: { hp: 150, mana: 150 },
-  desc: '+150 生命值，+150 魔法值。被动·魔晶升级：强化持有者的一项技能（每个英雄效果不同；若该英雄无魔晶升级则仅提供属性）。' });
+  shard: true, unique: true, giftable: true, props: { hp: 150, mana: 150 },
+  desc: '+150 生命值，+150 魔法值。被动·魔晶升级：强化持有者的一项技能（每个英雄效果不同；若该英雄无魔晶升级则仅提供属性）。可按 T 赠予友方英雄（远处由信使运送）。' });
 
 // ===== items/smoke.js =====
 // items/smoke.js — B12 诡计之雾 Smoke of Deceit. Consumable with team stock. Nearby allied heroes fade into invisibility
