@@ -20,4 +20,6 @@ Object.assign(GameAPI, {
   dynamicWardSpots, wardSpots, foeHasSpellBlock, needsBkbChannel, botPopBkb,
   // B19 luxury items: bot purchase builds
   BOT_BUILDS, BOT_EXTRA, botBuild, botShop, botHas, botRole,
+  // polish batch 3: hero select filters
+  HERO_EN, ATTR_CN, ROLE_CN, SEL, heroRoleTag, heroSearchBlob, setHeroFilter, applyHeroFilter,
 });

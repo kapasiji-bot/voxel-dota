@@ -33,10 +33,11 @@ Heroes come in batches of 3–4. Each batch is grouped by the engine features it
 | B11 follow-ups | **internet play needs a signalling server + STUN/TURN** (codes currently only work on one LAN); host migration; spectator mode; replays from the order log; faster rejoin (state checkpoints) | planned |
 | **Items polish ✅ batch 1** | Luxury late-game items (no new heroes): 刷新球 Refresher Orb, 玲珑心 Octarine Core (CD reduction + spell lifesteal hooks), 紫怨 Orchid, 血棘 Bloodthorn, 守护仙灵 Guardian Greaves; shop/recipes/tooltips; bot role builds + actives | done |
 | **Items polish ✅ batch 2** | Aghanim's Scepter / Shard **ally gifting**: **T** (no summon) → click ally (`giftItem`, walk into range); far click uses own courier (`giftViaCourier` / `c.giftTo`); support bots gift bought scepter/shard to carry (`ai/bot/gift.js`); HELP + shop desc | done |
-| Later polish | Roshan refresher shard / Aegis denies; more item-aware bot recipes; hero select UX | planned |
+| **Select UX ✅ batch 3** | Hero select search (CN / EN / id) + primary attribute + role (carry/support/tank via `ai.role` or primary fallback) filters; count badge; modular in `ui/select.js` | done |
+| Later polish | Roshan refresher shard / Aegis denies; more item-aware bot recipes | planned |
 
 ## Suggested next steps (older notes)
-- **Items (B7/B12 follow-ups):** Scepter/Shard ally gifting done in Items polish batch 2; luxury items in batch 1. Next: hero select UX / Roshan shard denies.
+- **Items / UI polish:** batch 1 luxury items, batch 2 Scepter/Shard gift, batch 3 hero select search+filters done. Next: Roshan 3rd drop + Aegis deny/contest.
 - **Sound (B9 follow-ups):** voice lines / recorded announcer, per-hero attack timbres, reverb in the Roshan pit, music.
 - **Teamwork (B10/B12 follow-ups):** item-aware combos (BKB → Black Hole, Blink → Eul's), dynamic ward spots; smoke/buyback/glyph/lane-farmer already in B12.
 - **Jungle (B8 follow-ups):** Aegis denies / Roshan refresher shard, neutral item drops, bots deliberately stacking/pulling camps and sniping enemy couriers, courier upgrade (speed burst), shared courier controls for allies.

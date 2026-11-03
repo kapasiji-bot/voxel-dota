@@ -149,4 +149,36 @@ module.exports = ({ test, boot, assert }) => {
     for (const [w, v] of Object.entries(out)) assert(!v.bad.length && v.inView, 'select ' + w + ' ' + JSON.stringify(v));
     return JSON.stringify(out);
   });
+
+  test('hero select: search + attribute/role filters hide cards', async page => {
+    await boot(page);
+    const r = await page.evaluate(() => {
+      const A = GameAPI, o = { n: Object.keys(A.HERO_DEFS).length, en: Object.keys(A.HERO_EN || {}).length };
+      o.all = A.applyHeroFilter();
+      A.setHeroFilter({ q: 'lina' });
+      o.lina = [...document.querySelectorAll('.card:not(.hide)')].map(c => c.dataset.id);
+      A.setHeroFilter({ q: 'Crystal' });
+      o.cmEn = [...document.querySelectorAll('.card:not(.hide)')].map(c => c.dataset.id);
+      A.setHeroFilter({ q: '', attr: 'str', role: '' });
+      o.str = [...document.querySelectorAll('.card:not(.hide)')].map(c => c.dataset.id);
+      o.strOk = o.str.every(id => A.HERO_DEFS[id].stats.primary === 'str');
+      A.setHeroFilter({ attr: '', role: 'support' });
+      o.sup = [...document.querySelectorAll('.card:not(.hide)')].map(c => c.dataset.id);
+      o.supOk = o.sup.every(id => A.heroRoleTag(A.HERO_DEFS[id]) === 'support');
+      A.setHeroFilter({ q: 'axe', attr: 'agi', role: '' });
+      o.none = [...document.querySelectorAll('.card:not(.hide)')].length;
+      A.setHeroFilter({ q: '', attr: '', role: '' });
+      o.reset = A.applyHeroFilter();
+      o.badge = (document.getElementById('heroFilterN') || {}).textContent || '';
+      o.hasUI = !!document.getElementById('heroFilter') && !!document.getElementById('heroSearch');
+      return o;
+    });
+    assert(r.n === 41 && r.en === 41 && r.hasUI, 'registry/ui ' + JSON.stringify(r));
+    assert(r.lina.includes('lina') && r.lina.length === 1, 'search lina ' + JSON.stringify(r.lina));
+    assert(r.cmEn.includes('cm') && r.cmEn.length === 1, 'EN Crystal ' + JSON.stringify(r.cmEn));
+    assert(r.strOk && r.str.length >= 8, 'str filter ' + JSON.stringify(r.str));
+    assert(r.supOk && r.sup.length >= 5, 'support filter ' + JSON.stringify(r.sup));
+    assert(r.none === 0 && r.reset === 41 && r.badge.startsWith('41'), 'reset ' + JSON.stringify(r));
+    return JSON.stringify({ str: r.str.length, sup: r.sup.length, badge: r.badge });
+  });
 };

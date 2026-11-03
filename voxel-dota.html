@@ -16,6 +16,17 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 #select>:first-child{margin-top:auto}#select>:last-child{margin-bottom:auto}
 #select h1{font-size:42px;margin:0 0 2px;letter-spacing:6px;color:#ffd54f;text-shadow:4px 4px 0 #6d3b00,0 0 20px rgba(255,170,0,.5)}
 #select .sub{color:#bbb;margin-bottom:14px;font-size:15px}
+/* select filter bar (search + attr/role chips) */
+#heroFilter{display:flex;flex-wrap:wrap;gap:8px 14px;margin:0 0 10px;background:rgba(0,0,0,.55);border:3px solid #000;padding:7px 12px;font-size:13px;align-items:center;width:min(1900px,98vw);justify-content:center}
+#heroFilter #heroSearch{width:min(280px,42vw);background:rgba(0,0,0,.5);border:2px solid #000;color:#fff;padding:4px 8px;font:inherit}
+#heroFilter #heroSearch:focus{outline:1px solid #ffd54f}
+#heroFilter .og{display:flex;gap:3px;align-items:center}#heroFilter .og b{margin-right:4px;color:#ffd54f;white-space:nowrap}
+#heroFilter .ob{min-width:28px;padding:3px 8px;text-align:center;background:#3a3f48;border:2px solid #000;cursor:pointer;box-shadow:inset -2px -2px 0 rgba(0,0,0,.4),inset 2px 2px 0 rgba(255,255,255,.15)}
+#heroFilter .ob.on{background:#e65100;color:#fff}
+#heroFilter .ob.sa.on{background:#c62828}#heroFilter .ob.sg.on{background:#2e7d32}#heroFilter .ob.si.on{background:#1565c0}
+#heroFilter .hn{color:#90caf9;font-size:12px;min-width:52px}
+.card.hide{display:none}
+.card .attr .role{color:#ffcc80;border:1px solid #5d4037;padding:0 4px;border-radius:2px;font-size:10px}
 /* 10 heroes: 5 × 2 grid that shrinks with the window */
 #cards{display:grid;grid-template-columns:repeat(7,minmax(0,240px));gap:8px;width:min(1900px,98vw);justify-content:center}
 .card{display:grid;grid-template-columns:88px minmax(0,1fr);gap:3px 9px;background:linear-gradient(#2a2f38,#15181d);border:4px solid #444;box-shadow:0 0 0 2px #000,5px 5px 0 rgba(0,0,0,.5);padding:8px;cursor:pointer;transition:transform .12s,border-color .12s;min-width:0}
@@ -343,7 +354,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = 'aebcef3085';
+const BUILD_ID = '112f2de83f';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -5678,20 +5689,80 @@ function buildMatchOpts() {
   });
   $('cards').before(box);
 }
+// English aliases for select search (CN name / title / id also match). Kept here so hero files stay gameplay-only.
+const HERO_EN = {
+  am: 'Anti-Mage', axe: 'Axe', bh: 'Bounty Hunter', cent: 'Centaur Warrunner', cm: 'Crystal Maiden',
+  disruptor: 'Disruptor', ember: 'Ember Spirit', enigma: 'Enigma', es: 'Earthshaker', jugg: 'Juggernaut',
+  kunkka: 'Kunkka', ld: 'Lone Druid', lich: 'Lich', lina: 'Lina', lion: 'Lion', lycan: 'Lycan',
+  mirana: 'Mirana', naga: 'Naga Siren', np: "Nature's Prophet", pa: 'Phantom Assassin', pl: 'Phantom Lancer',
+  puck: 'Puck', qop: 'Queen of Pain', riki: 'Riki', sf: 'Shadow Fiend', silencer: 'Silencer', sk: 'Sand King',
+  slardar: 'Slardar', sniper: 'Sniper', spectre: 'Spectre', sshaman: 'Shadow Shaman', storm: 'Storm Spirit',
+  sven: 'Sven', tide: 'Tidehunter', tinker: 'Tinker', void: 'Faceless Void', wd: 'Witch Doctor', weaver: 'Weaver',
+  wk: 'Wraith King', wr: 'Windranger', zeus: 'Zeus',
+};
+const ATTR_CN = { str: '力量', agi: '敏捷', int: '智力' };
+const ROLE_CN = { carry: '核心', support: '辅助', tank: '先手' };
+const SEL = { q: '', attr: '', role: '' };   // empty string = all
+const heroRoleTag = d => (d.ai && d.ai.role) || (d.stats.primary === 'int' ? 'support' : d.stats.primary === 'str' ? 'tank' : 'carry');
+const heroSearchBlob = d => [d.id, d.name, d.title, HERO_EN[d.id] || '', d.type, ATTR_CN[d.stats.primary] || '', ROLE_CN[heroRoleTag(d)] || ''].join(' ').toLowerCase();
+function setHeroFilter(o = {}) {
+  if (o.q !== undefined) SEL.q = String(o.q);
+  if (o.attr !== undefined) SEL.attr = o.attr || '';
+  if (o.role !== undefined) SEL.role = o.role || '';
+  const inp = $('heroSearch'); if (inp && o.q !== undefined) inp.value = SEL.q;
+  for (const g of document.querySelectorAll('#heroFilter .og')) {
+    const k = g.dataset.k, cur = SEL[k] || '';
+    for (const x of g.querySelectorAll('.ob')) x.classList.toggle('on', (x.dataset.v || '') === cur);
+  }
+  applyHeroFilter();
+}
+function applyHeroFilter() {
+  const q = (SEL.q || '').trim().toLowerCase();
+  let n = 0;
+  for (const d of heroList()) {
+    const el = $('pick-' + d.id); if (!el) continue;
+    const show = (!q || heroSearchBlob(d).includes(q)) && (!SEL.attr || d.stats.primary === SEL.attr) && (!SEL.role || heroRoleTag(d) === SEL.role);
+    el.classList.toggle('hide', !show); if (show) n++;
+  }
+  const hn = $('heroFilterN'); if (hn) hn.textContent = `${n} / ${heroList().length}`;
+  return n;
+}
+function buildHeroFilter() {
+  const box = document.createElement('div'); box.id = 'heroFilter';
+  const chip = (k, v, label, cls = '') => `<div class="ob${cls}${(SEL[k] || '') === v ? ' on' : ''}" data-v="${v}">${label}</div>`;
+  box.innerHTML =
+    `<input id="heroSearch" type="search" placeholder="搜索：中文名 / 英文 / id" autocomplete="off" spellcheck="false">` +
+    `<div class="og" data-k="attr"><b>属性</b>${chip('attr', '', '全部')}${chip('attr', 'str', '力量', ' sa')}${chip('attr', 'agi', '敏捷', ' sg')}${chip('attr', 'int', '智力', ' si')}</div>` +
+    `<div class="og" data-k="role"><b>定位</b>${chip('role', '', '全部')}${chip('role', 'carry', '核心')}${chip('role', 'support', '辅助')}${chip('role', 'tank', '先手')}</div>` +
+    `<span id="heroFilterN" class="hn"></span>`;
+  box.addEventListener('click', e => {
+    const ob = e.target.closest('.ob'); if (!ob || !ob.closest('.og')) return;
+    const g = ob.closest('.og'); SEL[g.dataset.k] = ob.dataset.v || '';
+    for (const x of g.querySelectorAll('.ob')) x.classList.toggle('on', x === ob);
+    applyHeroFilter();
+  });
+  const inp = box.querySelector('#heroSearch');
+  inp.addEventListener('input', () => { SEL.q = inp.value; applyHeroFilter(); });
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') { inp.value = ''; SEL.q = ''; applyHeroFilter(); inp.blur(); } });
+  $('cards').before(box);
+}
 function buildSelect() {
   buildMatchOpts();
+  buildHeroFilter();
   const cards = $('cards');
   for (const d of heroList()) {
     const id = d.id, el = document.createElement('div'); el.className = 'card'; el.style.setProperty('--btn', d.color);
+    el.dataset.id = id; el.dataset.attr = d.stats.primary; el.dataset.role = heroRoleTag(d);
     el.innerHTML = `<div class="pimg"><img class="px" src="${PORTRAITS[id] ? PORTRAITS[id].full : ''}"></div>
       <div><h2 style="color:${d.nameColor || '#ffab40'}">${d.name} <small style="font-size:13px;color:#aaa">${d.title}</small></h2>
-      <div class="attr"><span class="ty">${d.type}</span><span class="st"><i class="sa">力</i>${d.stats.str} <i class="sg">敏</i>${d.stats.agi} <i class="si">智</i>${d.stats.int}</span></div></div><div class="desc">${d.desc}</div>
+      <div class="attr"><span class="ty">${d.type}</span><span class="role">${ROLE_CN[heroRoleTag(d)]}</span><span class="st"><i class="sa">力</i>${d.stats.str} <i class="sg">敏</i>${d.stats.agi} <i class="si">智</i>${d.stats.int}</span></div></div><div class="desc">${d.desc}</div>
       <div class="sks">` + d.abilities.map(s => `<div class="sk">${icoHTML(s.icon, s.color)}<span><b>${s.key}</b> ${s.name}${s.passive ? ' <span class="tag" style="color:#999">被动</span>' : ''}${s.ult ? ' <span class="tag" style="color:#ff8a80">终极</span>' : ''}</span></div>`).join('') +
       `</div><div class="btn" style="background:${d.color}">选择 ${d.name}</div>`;
     el.addEventListener('click', () => startGame(id));
     el.id = 'pick-' + id;
     cards.appendChild(el);
   }
+  applyHeroFilter();
   $('ctrlHelp').innerHTML = '<b>右键</b> 移动/攻击　<b>QWER</b> 技能　<b>Alt+QWER</b> 学技能　<b>A</b> 攻击移动　<b>S</b> 停止　<b>1-6</b> 物品　<b>B</b> 商店　<b>空格</b> 回到英雄　<b>方向键/屏幕边缘</b> 移动镜头　<b>滚轮</b> 缩放　<b>左键/框选</b> 选单位　<b>F1</b> 选英雄　<b>Tab</b> 切换单位　<b>F9</b> 帮助';
 }
 // opts: {enemies 0-5, allies 0-4, diff 0-2}; defaults to the select-screen choice (G.match)
@@ -6479,6 +6550,8 @@ Object.assign(GameAPI, {
   dynamicWardSpots, wardSpots, foeHasSpellBlock, needsBkbChannel, botPopBkb,
   // B19 luxury items: bot purchase builds
   BOT_BUILDS, BOT_EXTRA, botBuild, botShop, botHas, botRole,
+  // polish batch 3: hero select filters
+  HERO_EN, ATTR_CN, ROLE_CN, SEL, heroRoleTag, heroSearchBlob, setHeroFilter, applyHeroFilter,
 });
 
 // ===== net/rng.js =====

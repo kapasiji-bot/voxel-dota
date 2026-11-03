@@ -239,6 +239,10 @@ modifiers tick → `tickInvis` → AI (creep/tower/hero orders) → `updateCasti
 - **Bots**: `ai/bot/gift.js` — supports gift owned scepter/shard to the team's carry (courier if far); `BOT_EXTRA.support` includes `shard`.
 - **Verify**: `node build/build.js && node build/run-tests.js B20`; screenshots via `node build/shots-b20.js`.
 
+## Select UX batch 3
+- **`ui/select.js`**: `#heroFilter` search box (`HERO_EN` aliases + CN name/title/id) and chip filters for `stats.primary` (str/agi/int) and role (`ai.role` or primary→tank/carry/support). Cards get `data-attr`/`data-role` and `.hide`; count badge `#heroFilterN`.
+- **Verify**: `node build/run-tests.js "hero select"`; screenshots via `node build/shots-b21.js`.
+
 ## Adding an item
 Create `src/items/<id>.js` containing `registerItem({id, order, name, en?, icon, cost, desc, parts?, cat?, props?:{str,agi,int,dmg,armor,as,ms,hp,mana,hpRegen,manaRegen,magicRes,evasion,trueStrike,cdReduc,spellLifesteal,...}, unique?, consumable?, tick?, modifyAttack?, onAttackLand?, active?:{target:'none'|'unit'|'point', targetTeam?, range?, cd, mana?, onUse(ctx, target)}})`. It shows up in the shop (tab from `itemCat`) automatically; add it to a bot build (`BOT_BUILDS` or hero `ai.build`) and, for actives, a rule in `ai/bot/actives.js`.
 
