@@ -34,12 +34,15 @@ function netInstall() {
     const ab = h && h.abilities && h.abilities[slot]; if (!ab || !ab.def.orb || ab.lvl === 0) return false;
     netCmd({ k: 'auto', u: h.id, i: slot }); return true;
   };
-  courierOrder = (h, type) => {
-    if (!netUI()) return O.courierOrder(h, type);
-    const c = h && h.courier; if (!c) return '没有信使';
+  courierOrder = (h, type, by) => {
+    if (!netUI()) return O.courierOrder(h, type, by);
+    const issuer = by || G.player;
+    if (!h || !h.courier) return '没有信使';
+    if (!canTeamCourier(issuer, h)) return '无法指挥该信使';
+    const c = h.courier;
     if (c.dead) return `信使正在复活（${Math.ceil(h.courierRespawn - G.time)} 秒）`;
     if (type === 'deliver' && !c.bag.length && !(h.stash || []).length) return '没有需要运送的物品';
-    return netCmd({ k: 'cour', type });
+    return netCmd({ k: 'cour', type, o: h.id });
   };
   // visual scope + silent while fast-forwarding a rejoin
   const vis = (f, quiet) => { const w = visScope(f); return quiet ? function () { return NET.ff ? undefined : w.apply(this, arguments); } : w; };

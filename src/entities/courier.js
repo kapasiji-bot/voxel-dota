@@ -24,13 +24,18 @@ function courierBagAdd(c, id) {
   const D = ITEM_DEFS[id], ex = D.stack && c.bag.find(s => s.id === id);
   if (ex) ex.n++; else c.bag.push({ id, n: 1 });
 }
-function courierOrder(h, type) {
-  const c = h && h.courier; if (!c) return '没有信使';
+// Team allies may issue deliver/home/secret on an ally's courier (by=issuer); stash/bag/gold stay with the owner.
+const canTeamCourier = (issuer, owner) => !!(issuer && owner && issuer.isHero && owner.isHero && issuer.team === owner.team && owner.courier);
+function courierOrder(h, type, by) {
+  const issuer = by || h;
+  if (!h || !h.courier) return '没有信使';
+  if (!canTeamCourier(issuer, h)) return '无法指挥该信使';
+  const c = h.courier;
   if (c.dead) return `信使正在复活（${Math.ceil(h.courierRespawn - G.time)} 秒）`;
   if (type === 'deliver' && !c.bag.length && !(h.stash || []).length) return '没有需要运送的物品';
   c.corder = { type, phase: type === 'deliver' && (h.stash || []).length ? 'load' : 'bring', t0: G.time };
   if (type === 'deliver') { c.burstUntil = G.time + COURIER_BURST_DUR; emit('courierBurst', { unit: c.id, owner: h.id, until: c.burstUntil }); }
-  emit('courierOrder', { unit: c.id, owner: h.id, type });
+  emit('courierOrder', { unit: c.id, owner: h.id, order: type, by: issuer.id });
   return null;
 }
 function courierUpgrade(h) {

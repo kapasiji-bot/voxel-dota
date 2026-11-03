@@ -123,7 +123,8 @@ const HELP_HTML = `<div style="color:#ffd54f;font-size:16px;font-weight:bold;mar
 <b>空格</b>镜头回到英雄（按住跟随）　<b style="min-width:0">Y</b> 锁定镜头<br>
 <b>鼠标滚轮</b>缩放镜头<br>
 <b>小地图</b>左键移动镜头，右键让英雄移动<br>
-<b>左键 / 框选</b>选择自己的单位（召唤物、幻象）；右键命令作用于全部选中单位<br>
+<b>左键 / 框选</b>选择自己的单位（召唤物、幻象、友军信使）；右键命令作用于全部选中单位<br>
+<b>F3</b>信使运送（当前聚焦）　<b style="min-width:0">Shift+F3</b>　切换友军信使　点击信使状态也可切换<br>
 <b>F1</b>只选英雄　<b style="min-width:0">F2</b>　选中其他所有单位　<b style="min-width:0">Tab</b>　切换当前单位（单独选中英雄时按住 = 计分板）<br>
 <b>Ctrl + 1-5</b>保存编队　<b style="min-width:0">Shift + 1-5</b>　选中编队<br>
 <b>P</b>暂停　<b style="min-width:0">F9</b> 本说明　<b style="min-width:0">F10</b> 设置/音量　<b style="min-width:0">M</b> 静音　<b style="min-width:0">F</b> 全屏<br>

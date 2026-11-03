@@ -1,9 +1,9 @@
 // ui/control.js — player unit control: selection (click / Shift+click / box drag), the active unit (HUD + QWER), control groups.
 // Controllable = the player's hero + its summons / illusions (u.owner === G.player && u.controllable).
-// Keys: F1 hero · F2 all other units · Tab (tap) next unit in the selection · Ctrl+1..5 store group · Shift+1..5 recall group.
+// Keys: F1 hero · F2 other controllables (summons + team couriers) · Tab next · Ctrl+1..5 store · Shift+1..5 recall.
 // Right-click / A / S / H orders go to every selected unit (ui/input.js uses ctlSel()); QWER goes to ctlCaster().
 const CTL = { sel: [], active: null, groups: {}, drag: null };
-const isCtl = u => !!u && !u.dead && (u === G.player || (u.owner === G.player && u.controllable));
+const isCtl = u => !!u && !u.dead && (u === G.player || (u.owner === G.player && u.controllable) || (u.isCourier && G.player && u.team === G.player.team));
 const ctlUnits = () => units.filter(isCtl);
 function ctlPrune() { CTL.sel = CTL.sel.filter(isCtl); if (!CTL.sel.includes(CTL.active)) CTL.active = CTL.sel[0] || null; }
 // selected units (defaults to the hero); hero first
@@ -30,7 +30,7 @@ function ctlGroup(n, store) {
 const formation = (i, n) => i === 0 || n < 2 ? { x: 0, z: 0 } : { x: Math.cos(i * 2.4) * (1.2 + i * 0.35), z: Math.sin(i * 2.4) * (1.2 + i * 0.35) };
 function orderSel(o, pt) {
   const s = ctlSel();
-  s.forEach((u, i) => { if (u.dead) return; const f = pt ? formation(i, s.length) : { x: 0, z: 0 }; issueOrder(u, pt ? Object.assign({}, o, { x: pt.x + f.x, z: pt.z + f.z }) : o); });
+  s.forEach((u, i) => { if (u.dead || u.isCourier) return; const f = pt ? formation(i, s.length) : { x: 0, z: 0 }; issueOrder(u, pt ? Object.assign({}, o, { x: pt.x + f.x, z: pt.z + f.z }) : o); });
 }
 // ---- box select (left drag on the 3D view) ----
 const selBox = document.createElement('div'); selBox.id = 'selBox'; selBox.className = 'hidden'; document.body.appendChild(selBox);
@@ -51,7 +51,7 @@ function boxEnd(x, y, add) {
 }
 // a left click on a unit: own controllable → (add to) selection; anything else → inspect (target info)
 function clickSelect(u, add) {
-  if (u && isCtl(u)) { selectUnits([u], add); G.selected = null; return; }
+  if (u && isCtl(u)) { selectUnits([u], add); if (u.isCourier && u.owner) COURIER_UI.focus = u.owner.id; G.selected = null; return; }
   G.selected = u;
 }
 // key handling (called from ui/input.js keydown); returns true if handled

@@ -311,7 +311,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
   <div id="msgs"></div>
   <div id="errmsg"></div>
 
-  <div id="courierRow" class="panel"><span id="courierSt">信使</span><button class="cbtn" id="cDeliver" title="信使：收取储藏处物品并送到英雄身边 (F3)">运送 F3</button><button class="cbtn" id="cHome" title="信使：返回基地">回家</button><button class="cbtn" id="cSecret" title="信使：前往己方神秘商店，在那里购买的「秘」物品放入信使背包">神秘</button></div>
+  <div id="courierRow" class="panel"><span id="courierSt" style="cursor:pointer" title="点击切换友军信使（Shift+F3）">信使</span><button class="cbtn" id="cDeliver" title="指挥当前信使：收取其主人储藏处并送达主人 (F3)；Shift+F3 切换友军信使">运送 F3</button><button class="cbtn" id="cHome" title="指挥当前信使返回基地">回家</button><button class="cbtn" id="cSecret" title="指挥当前信使前往己方神秘商店（购买仍花自己的钱；仅主人信使在店时「秘」物入其背包）">神秘</button></div>
   <div id="mmBox" class="panel"><canvas id="minimap" width="220" height="220"></canvas><span id="fps"></span></div>
   <div id="tinfo" class="panel hidden"><div class="tn" id="tName"></div><div class="bar"><div class="fill" id="tHpFill" style="background:#c33"></div><span id="tHp"></span></div><div id="tExtra" style="font-size:12px;color:#bbb;margin-top:3px"></div></div>
 
@@ -354,7 +354,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = '46851f0d9b';
+const BUILD_ID = 'd363b1ff9c';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -2432,13 +2432,18 @@ function courierBagAdd(c, id) {
   const D = ITEM_DEFS[id], ex = D.stack && c.bag.find(s => s.id === id);
   if (ex) ex.n++; else c.bag.push({ id, n: 1 });
 }
-function courierOrder(h, type) {
-  const c = h && h.courier; if (!c) return '没有信使';
+// Team allies may issue deliver/home/secret on an ally's courier (by=issuer); stash/bag/gold stay with the owner.
+const canTeamCourier = (issuer, owner) => !!(issuer && owner && issuer.isHero && owner.isHero && issuer.team === owner.team && owner.courier);
+function courierOrder(h, type, by) {
+  const issuer = by || h;
+  if (!h || !h.courier) return '没有信使';
+  if (!canTeamCourier(issuer, h)) return '无法指挥该信使';
+  const c = h.courier;
   if (c.dead) return `信使正在复活（${Math.ceil(h.courierRespawn - G.time)} 秒）`;
   if (type === 'deliver' && !c.bag.length && !(h.stash || []).length) return '没有需要运送的物品';
   c.corder = { type, phase: type === 'deliver' && (h.stash || []).length ? 'load' : 'bring', t0: G.time };
   if (type === 'deliver') { c.burstUntil = G.time + COURIER_BURST_DUR; emit('courierBurst', { unit: c.id, owner: h.id, until: c.burstUntil }); }
-  emit('courierOrder', { unit: c.id, owner: h.id, type });
+  emit('courierOrder', { unit: c.id, owner: h.id, order: type, by: issuer.id });
   return null;
 }
 function courierUpgrade(h) {
@@ -5171,7 +5176,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;   // typing in the shop search box
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-  if (k === 'F3') { e.preventDefault(); playerCourierOrder('deliver'); return; }   // ui/courier.js (B8)
+  if (k === 'F3') { e.preventDefault(); if (e.shiftKey) cycleTeamCourierFocus(); else playerCourierOrder('deliver'); return; }   // ui/courier.js
   if (k === 'F9') { e.preventDefault(); $('help').classList.toggle('hidden'); return; }
   if (!G.started || G.over) return;
   if (ctlKey(e, k)) return;   // F1 / F2 / control groups (ui/control.js)
@@ -5225,10 +5230,10 @@ function resolveGiftClick(sx, sy, tg) {
 // ===== ui/control.js =====
 // ui/control.js — player unit control: selection (click / Shift+click / box drag), the active unit (HUD + QWER), control groups.
 // Controllable = the player's hero + its summons / illusions (u.owner === G.player && u.controllable).
-// Keys: F1 hero · F2 all other units · Tab (tap) next unit in the selection · Ctrl+1..5 store group · Shift+1..5 recall group.
+// Keys: F1 hero · F2 other controllables (summons + team couriers) · Tab next · Ctrl+1..5 store · Shift+1..5 recall.
 // Right-click / A / S / H orders go to every selected unit (ui/input.js uses ctlSel()); QWER goes to ctlCaster().
 const CTL = { sel: [], active: null, groups: {}, drag: null };
-const isCtl = u => !!u && !u.dead && (u === G.player || (u.owner === G.player && u.controllable));
+const isCtl = u => !!u && !u.dead && (u === G.player || (u.owner === G.player && u.controllable) || (u.isCourier && G.player && u.team === G.player.team));
 const ctlUnits = () => units.filter(isCtl);
 function ctlPrune() { CTL.sel = CTL.sel.filter(isCtl); if (!CTL.sel.includes(CTL.active)) CTL.active = CTL.sel[0] || null; }
 // selected units (defaults to the hero); hero first
@@ -5255,7 +5260,7 @@ function ctlGroup(n, store) {
 const formation = (i, n) => i === 0 || n < 2 ? { x: 0, z: 0 } : { x: Math.cos(i * 2.4) * (1.2 + i * 0.35), z: Math.sin(i * 2.4) * (1.2 + i * 0.35) };
 function orderSel(o, pt) {
   const s = ctlSel();
-  s.forEach((u, i) => { if (u.dead) return; const f = pt ? formation(i, s.length) : { x: 0, z: 0 }; issueOrder(u, pt ? Object.assign({}, o, { x: pt.x + f.x, z: pt.z + f.z }) : o); });
+  s.forEach((u, i) => { if (u.dead || u.isCourier) return; const f = pt ? formation(i, s.length) : { x: 0, z: 0 }; issueOrder(u, pt ? Object.assign({}, o, { x: pt.x + f.x, z: pt.z + f.z }) : o); });
 }
 // ---- box select (left drag on the 3D view) ----
 const selBox = document.createElement('div'); selBox.id = 'selBox'; selBox.className = 'hidden'; document.body.appendChild(selBox);
@@ -5276,7 +5281,7 @@ function boxEnd(x, y, add) {
 }
 // a left click on a unit: own controllable → (add to) selection; anything else → inspect (target info)
 function clickSelect(u, add) {
-  if (u && isCtl(u)) { selectUnits([u], add); G.selected = null; return; }
+  if (u && isCtl(u)) { selectUnits([u], add); if (u.isCourier && u.owner) COURIER_UI.focus = u.owner.id; G.selected = null; return; }
   G.selected = u;
 }
 // key handling (called from ui/input.js keydown); returns true if handled
@@ -5641,7 +5646,8 @@ const HELP_HTML = `<div style="color:#ffd54f;font-size:16px;font-weight:bold;mar
 <b>空格</b>镜头回到英雄（按住跟随）　<b style="min-width:0">Y</b> 锁定镜头<br>
 <b>鼠标滚轮</b>缩放镜头<br>
 <b>小地图</b>左键移动镜头，右键让英雄移动<br>
-<b>左键 / 框选</b>选择自己的单位（召唤物、幻象）；右键命令作用于全部选中单位<br>
+<b>左键 / 框选</b>选择自己的单位（召唤物、幻象、友军信使）；右键命令作用于全部选中单位<br>
+<b>F3</b>信使运送（当前聚焦）　<b style="min-width:0">Shift+F3</b>　切换友军信使　点击信使状态也可切换<br>
 <b>F1</b>只选英雄　<b style="min-width:0">F2</b>　选中其他所有单位　<b style="min-width:0">Tab</b>　切换当前单位（单独选中英雄时按住 = 计分板）<br>
 <b>Ctrl + 1-5</b>保存编队　<b style="min-width:0">Shift + 1-5</b>　选中编队<br>
 <b>P</b>暂停　<b style="min-width:0">F9</b> 本说明　<b style="min-width:0">F10</b> 设置/音量　<b style="min-width:0">M</b> 静音　<b style="min-width:0">F</b> 全屏<br>
@@ -5758,23 +5764,57 @@ function updateShop() {
 }
 
 // ===== ui/courier.js =====
-// ui/courier.js — B8 courier HUD row (under the gold row): status text + 运送 (F3) / 回家 / 神秘 buttons → courierOrder
-// (entities/courier.js). F3 is bound in ui/input.js. Status shows the order, bag size and the respawn timer.
+// ui/courier.js — B8 courier HUD + polish batch 6 shared ally control: F3 / buttons command the focused team
+// courier (own by default; click courier or Shift+F3 / click status to cycle). Deliver still loads the owner's stash
+// into that owner's bag — teammates issue orders only, never gold/items.
+const COURIER_UI = { focus: 0 };
+function teamCourierOwners(team) {
+  return G.heroes.filter(h => h.team === team && h.courier);
+}
+function focusedCourierOwner() {
+  const P = G.player; if (!P) return null;
+  const a = typeof ctlActive === 'function' ? ctlActive() : null;
+  if (a && a.isCourier && a.team === P.team && a.owner && !a.dead) { COURIER_UI.focus = a.owner.id; return a.owner; }
+  if (COURIER_UI.focus) {
+    const h = unitById(COURIER_UI.focus);
+    if (h && h.isHero && h.team === P.team && h.courier) return h;
+  }
+  return P;
+}
+function cycleTeamCourierFocus() {
+  const P = G.player; if (!P) return false;
+  const owners = teamCourierOwners(P.team); if (owners.length < 2) return false;
+  const cur = focusedCourierOwner(), i = Math.max(0, owners.indexOf(cur));
+  const next = owners[(i + 1) % owners.length];
+  COURIER_UI.focus = next.id;
+  if (next.courier && !next.courier.dead && typeof selectUnits === 'function') selectUnits([next.courier]);
+  msg(`指挥：${heroLabel(next)}的信使`, '#80d8ff');
+  return true;
+}
 function playerCourierOrder(type) {
   const P = G.player; if (!P) return;
-  const e = courierOrder(P, type); if (e) { err(e); return; }
-  msg(`信使：${COURIER_CN[type]}`, '#80d8ff');
+  const owner = focusedCourierOwner() || P;
+  const e = courierOrder(owner, type, P); if (e) { err(e); return; }
+  const whose = owner === P ? '信使' : `${heroLabel(owner)}的信使`;
+  msg(`${whose}：${COURIER_CN[type]}`, '#80d8ff');
 }
 for (const [id, type] of [['cDeliver', 'deliver'], ['cHome', 'home'], ['cSecret', 'secret']]) {
   const b = $(id); if (b) b.addEventListener('mousedown', e => { e.stopPropagation(); playerCourierOrder(type); });
 }
+{ const el = $('courierSt'); if (el) el.addEventListener('mousedown', e => { e.stopPropagation(); if (!cycleTeamCourierFocus()) msg('仅己方信使', '#80d8ff'); }); }
 function updateCourierHUD() {
   const P = G.player, el = $('courierSt'); if (!P || !el) return;
-  const c = P.courier;
-  let t = '信使：无';
-  if (c && c.dead) t = `信使：复活中 ${Math.max(0, Math.ceil(P.courierRespawn - G.time))}s`;
-  else if (c) { const o = c.corder.type, sh = nearShopSite(c, 'secret') ? '（在神秘商店）' : ''; const burst = c.burstUntil && G.time < c.burstUntil ? ' · 加速' : ''; const up = c.upgraded ? ' · 已升级' : ''; t = `信使：${COURIER_CN[o] || o}${sh}${c.bag.length ? ` · 背包 ${c.bag.length}` : ''}${up}${burst}`; }
+  const owner = focusedCourierOwner() || P, c = owner.courier;
+  const tag = owner === P ? '信使' : `友军信使（${owner.def.name}）`;
+  let t = `${tag}：无`;
+  if (c && c.dead) t = `${tag}：复活中 ${Math.max(0, Math.ceil(owner.courierRespawn - G.time))}s`;
+  else if (c) {
+    const o = c.corder.type, sh = nearShopSite(c, 'secret') ? '（在神秘商店）' : '';
+    const burst = c.burstUntil && G.time < c.burstUntil ? ' · 加速' : '', up = c.upgraded ? ' · 已升级' : '';
+    t = `${tag}：${COURIER_CN[o] || o}${sh}${c.bag.length ? ` · 背包 ${c.bag.length}` : ''}${up}${burst}`;
+  }
   setT(el, t);
+  el.title = teamCourierOwners(P.team).length > 1 ? '点击切换友军信使（Shift+F3）' : '信使状态';
 }
 
 // ===== ui/select.js =====
@@ -5890,7 +5930,7 @@ function buildSelect() {
     cards.appendChild(el);
   }
   applyHeroFilter();
-  $('ctrlHelp').innerHTML = '<b>右键</b> 移动/攻击　<b>QWER</b> 技能　<b>Alt+QWER</b> 学技能　<b>A</b> 攻击移动　<b>S</b> 停止　<b>1-6</b> 物品　<b>B</b> 商店　<b>空格</b> 回到英雄　<b>方向键/屏幕边缘</b> 移动镜头　<b>滚轮</b> 缩放　<b>左键/框选</b> 选单位　<b>F1</b> 选英雄　<b>Tab</b> 切换单位　<b>F9</b> 帮助';
+  $('ctrlHelp').innerHTML = '<b>右键</b> 移动/攻击　<b>QWER</b> 技能　<b>Alt+QWER</b> 学技能　<b>A</b> 攻击移动　<b>S</b> 停止　<b>1-6</b> 物品　<b>B</b> 商店　<b>空格</b> 回到英雄　<b>方向键/屏幕边缘</b> 移动镜头　<b>滚轮</b> 缩放　<b>左键/框选</b> 选单位　<b>F1</b> 选英雄　<b>F3</b> 信使　<b>Shift+F3</b> 友军信使　<b>Tab</b> 切换单位　<b>F9</b> 帮助';
 }
 // opts: {enemies 0-5, allies 0-4, diff 0-2}; defaults to the select-screen choice (G.match)
 function startGame(id, opts) {
@@ -6642,7 +6682,7 @@ const GameAPI = {
   isInvuln, itemCat, setShopTab, setShopSearch, itemTip, skillTip, recipeTree, hasScepter, scepterDef, applyScepter, itemTargetError, absorbMagic,
   botItemActives, botNextPart, botHas, itemPrice, recipeParts, toggleShop, buildShop, updateShop,
   JUNGLE, PIT, NEUTRAL, CAMP_BOX, LEASH, NEUTRAL_TYPES, CAMP_KINDS, jg, spawnCamp, tickCamps, campBlocker, rosh, spawnRoshan, inPit, drops, spawnDrop, pickupDrop, denyDrop, isDeniableDrop, AEGIS_LIFE, AEGIS_REVIVE,
-  nearShopSite, buyWhere, needsSecret, shopLocLabel, shopSiteHere, sideSells, courierOrder, spawnCourier, courierBagAdd, botJungle, botCourier, botCourierSnipe, botStack, pickStackCamp, pickCamp, roshCallFor, updateCourierHUD,
+  nearShopSite, buyWhere, needsSecret, shopLocLabel, shopSiteHere, sideSells, courierOrder, canTeamCourier, focusedCourierOwner, cycleTeamCourierFocus, teamCourierOwners, COURIER_UI, spawnCourier, courierBagAdd, botJungle, botCourier, botCourierSnipe, botStack, pickStackCamp, pickCamp, roshCallFor, updateCourierHUD,
   campNow() { jg().nextCamp = G.time; tickCamps(); }, };   // B8 jungle / Roshan / drops / shops / courier; campNow = minute-mark camp check now
 window.GameAPI = GameAPI; window.DEBUG = GameAPI; window.VD = GameAPI;   // VD kept for older scripts
 if (location.search.includes('debug=1')) {
@@ -6673,7 +6713,7 @@ Object.assign(GameAPI, {
   trySpellBlock, hasShard, applyShard, transferItem, giftItem, giftViaCourier, isGiftable, giftTargetError, GIFT_RANGE, botGift, giftCarry, tickSmoke, breakSmokeGroup: typeof clearSmokeTeam === 'function' ? clearSmokeTeam : undefined,
   botBuyback, botGlyph, botSmokeBuy, botSmokeUse, botFarmer, emptyLane, botBigSpells, botKeepChannel, makeBot, sense,
   // B13 polish: shard coverage helpers, item-aware bot prep, courier burst/upgrade, dynamic wards
-  courierUpgrade, courierOrder, spawnCourier, COURIER_SPEED, COURIER_BURST_MULT, COURIER_BURST_DUR, COURIER_UPGRADE_COST, COURIER_UPGRADE_MULT,
+  courierUpgrade, courierOrder, canTeamCourier, focusedCourierOwner, cycleTeamCourierFocus, teamCourierOwners, COURIER_UI, spawnCourier, COURIER_SPEED, COURIER_BURST_MULT, COURIER_BURST_DUR, COURIER_UPGRADE_COST, COURIER_UPGRADE_MULT,
   dynamicWardSpots, wardSpots, foeHasSpellBlock, needsBkbChannel, botPopBkb,
   // B19 luxury items: bot purchase builds
   BOT_BUILDS, BOT_EXTRA, botBuild, botShop, botHas, botRole,
@@ -7279,7 +7319,11 @@ function execCmd(c) {
     case 'sell': O.sellItem(c.s | 0, H); break;
     case 'learn': O.learnSkill(c.i | 0, H); break;
     case 'auto': { const u = unitById(c.u); if (netOwns(H, u)) O.toggleAutocast(u, c.i | 0); break; }
-    case 'cour': say(O.courierOrder(H, c.type)); break;
+    case 'cour': {
+      const owner = c.o != null ? unitById(c.o) : H;
+      if (!owner || !canTeamCourier(H, owner)) return;
+      say(O.courierOrder(owner, c.type, H)); break;
+    }
   }
 }
 
@@ -7320,12 +7364,15 @@ function netInstall() {
     const ab = h && h.abilities && h.abilities[slot]; if (!ab || !ab.def.orb || ab.lvl === 0) return false;
     netCmd({ k: 'auto', u: h.id, i: slot }); return true;
   };
-  courierOrder = (h, type) => {
-    if (!netUI()) return O.courierOrder(h, type);
-    const c = h && h.courier; if (!c) return '没有信使';
+  courierOrder = (h, type, by) => {
+    if (!netUI()) return O.courierOrder(h, type, by);
+    const issuer = by || G.player;
+    if (!h || !h.courier) return '没有信使';
+    if (!canTeamCourier(issuer, h)) return '无法指挥该信使';
+    const c = h.courier;
     if (c.dead) return `信使正在复活（${Math.ceil(h.courierRespawn - G.time)} 秒）`;
     if (type === 'deliver' && !c.bag.length && !(h.stash || []).length) return '没有需要运送的物品';
-    return netCmd({ k: 'cour', type });
+    return netCmd({ k: 'cour', type, o: h.id });
   };
   // visual scope + silent while fast-forwarding a rejoin
   const vis = (f, quiet) => { const w = visScope(f); return quiet ? function () { return NET.ff ? undefined : w.apply(this, arguments); } : w; };

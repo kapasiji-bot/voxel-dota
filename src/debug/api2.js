@@ -16,7 +16,7 @@ Object.assign(GameAPI, {
   trySpellBlock, hasShard, applyShard, transferItem, giftItem, giftViaCourier, isGiftable, giftTargetError, GIFT_RANGE, botGift, giftCarry, tickSmoke, breakSmokeGroup: typeof clearSmokeTeam === 'function' ? clearSmokeTeam : undefined,
   botBuyback, botGlyph, botSmokeBuy, botSmokeUse, botFarmer, emptyLane, botBigSpells, botKeepChannel, makeBot, sense,
   // B13 polish: shard coverage helpers, item-aware bot prep, courier burst/upgrade, dynamic wards
-  courierUpgrade, courierOrder, spawnCourier, COURIER_SPEED, COURIER_BURST_MULT, COURIER_BURST_DUR, COURIER_UPGRADE_COST, COURIER_UPGRADE_MULT,
+  courierUpgrade, courierOrder, canTeamCourier, focusedCourierOwner, cycleTeamCourierFocus, teamCourierOwners, COURIER_UI, spawnCourier, COURIER_SPEED, COURIER_BURST_MULT, COURIER_BURST_DUR, COURIER_UPGRADE_COST, COURIER_UPGRADE_MULT,
   dynamicWardSpots, wardSpots, foeHasSpellBlock, needsBkbChannel, botPopBkb,
   // B19 luxury items: bot purchase builds
   BOT_BUILDS, BOT_EXTRA, botBuild, botShop, botHas, botRole,

@@ -104,7 +104,7 @@ addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;   // typing in the shop search box
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-  if (k === 'F3') { e.preventDefault(); playerCourierOrder('deliver'); return; }   // ui/courier.js (B8)
+  if (k === 'F3') { e.preventDefault(); if (e.shiftKey) cycleTeamCourierFocus(); else playerCourierOrder('deliver'); return; }   // ui/courier.js
   if (k === 'F9') { e.preventDefault(); $('help').classList.toggle('hidden'); return; }
   if (!G.started || G.over) return;
   if (ctlKey(e, k)) return;   // F1 / F2 / control groups (ui/control.js)

@@ -47,6 +47,10 @@ function execCmd(c) {
     case 'sell': O.sellItem(c.s | 0, H); break;
     case 'learn': O.learnSkill(c.i | 0, H); break;
     case 'auto': { const u = unitById(c.u); if (netOwns(H, u)) O.toggleAutocast(u, c.i | 0); break; }
-    case 'cour': say(O.courierOrder(H, c.type)); break;
+    case 'cour': {
+      const owner = c.o != null ? unitById(c.o) : H;
+      if (!owner || !canTeamCourier(H, owner)) return;
+      say(O.courierOrder(owner, c.type, H)); break;
+    }
   }
 }

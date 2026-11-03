@@ -110,7 +110,7 @@ function buildSelect() {
     cards.appendChild(el);
   }
   applyHeroFilter();
-  $('ctrlHelp').innerHTML = '<b>右键</b> 移动/攻击　<b>QWER</b> 技能　<b>Alt+QWER</b> 学技能　<b>A</b> 攻击移动　<b>S</b> 停止　<b>1-6</b> 物品　<b>B</b> 商店　<b>空格</b> 回到英雄　<b>方向键/屏幕边缘</b> 移动镜头　<b>滚轮</b> 缩放　<b>左键/框选</b> 选单位　<b>F1</b> 选英雄　<b>Tab</b> 切换单位　<b>F9</b> 帮助';
+  $('ctrlHelp').innerHTML = '<b>右键</b> 移动/攻击　<b>QWER</b> 技能　<b>Alt+QWER</b> 学技能　<b>A</b> 攻击移动　<b>S</b> 停止　<b>1-6</b> 物品　<b>B</b> 商店　<b>空格</b> 回到英雄　<b>方向键/屏幕边缘</b> 移动镜头　<b>滚轮</b> 缩放　<b>左键/框选</b> 选单位　<b>F1</b> 选英雄　<b>F3</b> 信使　<b>Shift+F3</b> 友军信使　<b>Tab</b> 切换单位　<b>F9</b> 帮助';
 }
 // opts: {enemies 0-5, allies 0-4, diff 0-2}; defaults to the select-screen choice (G.match)
 function startGame(id, opts) {
