@@ -36,7 +36,7 @@ module.exports = ({ test, boot, assert }) => {
       return o;
     }, NEW);
     assert(!r.missing.length && !r.bad.length, JSON.stringify(r));
-    assert(r.nItems === 64 && r.nHeroes === 41, 'counts ' + JSON.stringify(r));
+    assert(r.nItems === 65 && r.nHeroes === 41, 'counts ' + JSON.stringify(r));
     return JSON.stringify(r.costs);
   });
 

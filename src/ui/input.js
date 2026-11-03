@@ -25,21 +25,26 @@ function pickUnit(sx, sy, self) {
 function clickMarker(x, z, col) { ringP(x, z, 0.6, 10, col, 0.4, 0.18, 0.15, -1.2); }
 function issueMove(x, z) { issueOrder(G.player, { type: 'move', x, z }); clickMarker(x, z, '#4cff4c'); }
 function issueAttack(t) { issueOrder(G.player, { type: 'attack', target: t }); ringP(t.x, t.z, t.radius + 0.4, 14, '#ff3b3b', 0.4, 0.2, 0.15); }
-function handleRight(sx, sy) {
+function handleRight(sx, sy, ev) {
   const P = G.player; if (!P) return;
   if (G.targeting) { G.targeting = null; return; }
   if (ctlSel().every(u => u.dead)) return;
   const u = pickUnit(sx, sy), sel = ctlSel();   // orders go to every selected unit (ui/control.js)
   if (u && sel.some(s => validAttackTarget(s, u))) { for (const s of sel) if (validAttackTarget(s, u)) issueOrder(s, { type: 'attack', target: u }); ringP(u.x, u.z, u.radius + 0.4, 14, '#ff3b3b', 0.4, 0.2, 0.15); return; }
   if (u && u.team !== P.team && isInvuln(u)) err('该建筑处于无敌状态（需先摧毁前置防御塔）');
-  const g = groundAt(sx, sy), d = g && dropNear(g.x, g.z, 1.6); if (!g) return;   // B8: right-click Aegis / Cheese → pick up
-  if (d && !P.dead) { issueOrder(P, { type: 'pickup', drop: d }); clickMarker(d.x, d.z, '#ffca28'); } else { orderSel({ type: 'move' }, g); clickMarker(g.x, g.z, '#4cff4c'); }
+  const g = groundAt(sx, sy), d = g && dropNear(g.x, g.z, 1.6); if (!g) return;   // B8 pickup; Alt+RMB = deny deniable drops (Aegis)
+  if (d && !P.dead) {
+    if (ev && ev.altKey && isDeniableDrop(d)) { issueOrder(P, { type: 'denyDrop', drop: d }); clickMarker(d.x, d.z, '#ff8a80'); }
+    else { issueOrder(P, { type: 'pickup', drop: d }); clickMarker(d.x, d.z, '#ffca28'); }
+  } else { orderSel({ type: 'move' }, g); clickMarker(g.x, g.z, '#4cff4c'); }
 }
 function handleLeftTarget(sx, sy) {
   const P = G.player, tg = G.targeting; G.targeting = null;
   if ((tg.caster || P).dead && tg.kind !== 'amove') return;
   const g = groundAt(sx, sy), u = pickUnit(sx, sy);
   if (tg.kind === 'amove') {
+    const d = g && dropNear(g.x, g.z, 1.6);
+    if (d && isDeniableDrop(d) && !P.dead) { issueOrder(P, { type: 'denyDrop', drop: d }); clickMarker(d.x, d.z, '#ff8a80'); return; }
     if (u && validAttackTarget(P, u)) { for (const s of ctlSel()) if (validAttackTarget(s, u)) issueOrder(s, { type: 'attack', target: u }); }
     else if (g) { orderSel({ type: 'amove' }, g); clickMarker(g.x, g.z, '#ff3b3b'); }
     return;
@@ -85,7 +90,7 @@ canvas.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('mousedown', e => {
   if (!G.started || G.over) return;
-  if (e.button === 2) handleRight(e.clientX, e.clientY);
+  if (e.button === 2) handleRight(e.clientX, e.clientY, e);
   else if (e.button === 0) {
     if (G.targeting) handleLeftTarget(e.clientX, e.clientY);
     else boxStart(e.clientX, e.clientY);   // click or box select on mouseup (ui/control.js)

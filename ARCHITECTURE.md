@@ -243,6 +243,12 @@ modifiers tick → `tickInvis` → AI (creep/tower/hero orders) → `updateCasti
 - **`ui/select.js`**: `#heroFilter` search box (`HERO_EN` aliases + CN name/title/id) and chip filters for `stats.primary` (str/agi/int) and role (`ai.role` or primary→tank/carry/support). Cards get `data-attr`/`data-role` and `.hide`; count badge `#heroFilterN`.
 - **Verify**: `node build/run-tests.js "hero select"`; screenshots via `node build/shots-b21.js`.
 
+## Roshan polish batch 4
+- **Refresher Shard** (`items/refresher_shard.js`): Roshan kill ≥ 3 drops with Aegis + Cheese; consumable refreshes **ability** CDs only (`refresherShard` event).
+- **Ground Aegis contest / deny** (`entities/drops.js`): either team may `pickupDrop`; `deniable` Aegis can be destroyed via `denyDrop` (Alt+right-click or A-click on the drop). Emits `itemDeny` / `aegisDeny`. Holder death still consumes Aegis into reincarnation (`aegisSave`) — no drop from the corpse.
+- **Bots**: `shardTaker` + full-inv Aegis → `denyDrop` (`ai/bot/jungle.js`).
+- **Verify**: `node build/run-tests.js B22`; screenshots via `node build/shots-b22.js`.
+
 ## Adding an item
 Create `src/items/<id>.js` containing `registerItem({id, order, name, en?, icon, cost, desc, parts?, cat?, props?:{str,agi,int,dmg,armor,as,ms,hp,mana,hpRegen,manaRegen,magicRes,evasion,trueStrike,cdReduc,spellLifesteal,...}, unique?, consumable?, tick?, modifyAttack?, onAttackLand?, active?:{target:'none'|'unit'|'point', targetTeam?, range?, cd, mana?, onUse(ctx, target)}})`. It shows up in the shop (tab from `itemCat`) automatically; add it to a bot build (`BOT_BUILDS` or hero `ai.build`) and, for actives, a rule in `ai/bot/actives.js`.
 

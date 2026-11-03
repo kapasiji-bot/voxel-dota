@@ -1,7 +1,8 @@
-// entities/drops.js — B8 items lying on the ground (Roshan's Aegis / Cheese). spawnDrop(item, x, z) shows a spinning voxel
-// item; heroes pick it up with the 'pickup' order (right-click it: ui/input.js; bots: ai/bot/jungle.js) when within 1.8.
+// entities/drops.js — B8 items lying on the ground (Roshan's Aegis / Cheese / Refresher Shard). spawnDrop(item, x, z) shows a
+// spinning voxel; heroes pick up with the 'pickup' order (right-click: ui/input.js; bots: ai/bot/jungle.js) when within 1.8.
 // Aegis rules (items/aegis.js): only real heroes may carry it, expires AEGIS_LIFE s after pickup; on death the holder
-// reincarnates at the death spot after 5 s (aegisSave, called first thing in combat/damage.js killUnit).
+// reincarnates at the death spot after 5 s (aegisSave). Ground Aegis is contested (either team may pick) and deniable
+// (denyDrop: Alt+right-click or A-click the drop) — destroyed with no pickup.
 const drops = [];
 const AEGIS_LIFE = 300, AEGIS_REVIVE = 5;
 function spawnDrop(item, x, z) {
@@ -42,6 +43,24 @@ function tickDrops(dt) {
   }
 }
 // death with an Aegis: consume it, "die" for AEGIS_REVIVE s without bounty / death count, reincarnate on the spot
+const isDeniableDrop = d => !!(d && ITEM_DEFS[d.item] && ITEM_DEFS[d.item].deniable);
+function denyDrop(h, d) {
+  if (!drops.includes(d)) return '物品已不存在';
+  if (!h || !h.isHero || h.isIllusion || h.dead) return '无法反补';
+  if (!isDeniableDrop(d)) return '该物品无法反补';
+  if (Math.hypot(h.x - d.x, h.z - d.z) > 2.2) {
+    if (h.order.type !== 'denyDrop' || h.order.drop !== d) issueOrder(h, { type: 'denyDrop', drop: d });
+    return null;
+  }
+  const id = d.item, name = ITEM_DEFS[id].name;
+  removeDrop(d);
+  emit('itemDeny', { unit: h.id, item: id, team: h.team });
+  if (id === 'aegis') emit('aegisDeny', { unit: h.id, team: h.team });
+  killFeed(`${heroLabel(h)}（${TEAM_CN[h.team]}）反补了${name}`, h.team, h, null);
+  msg(`${heroLabel(h)} 反补摧毁了${name}`, '#ff8a80');
+  burst(d.x, 1.2, d.z, 22, ['#ff8a80', '#ffca28', '#ffffff'], 4, 0.7, 0.25, 3);
+  return null;
+}
 function aegisSave(u) {
   const slot = u.items ? u.items.findIndex(it => it && it.id === 'aegis') : -1; if (slot < 0) return false;
   u.items[slot] = null; u.aegisT = undefined;

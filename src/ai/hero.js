@@ -60,6 +60,11 @@ function heroAI(h, dt) {
       if (heroNav(h, o.drop.x, o.drop.z, dt, 1.0)) { h.order = { type: h.bot ? 'stand' : 'idle' }; const e = pickupDrop(h, o.drop); if (e && h === G.player) err(e); }
       break;
     }
+    case 'denyDrop': {   // polish batch 4: walk to deniable ground drop (Aegis) and destroy it
+      if (!drops.includes(o.drop) || !isDeniableDrop(o.drop)) { h.order = { type: h.bot ? 'stand' : 'idle' }; break; }
+      if (heroNav(h, o.drop.x, o.drop.z, dt, 1.0)) { h.order = { type: h.bot ? 'stand' : 'idle' }; const e = denyDrop(h, o.drop); if (e && h === G.player) err(e); }
+      break;
+    }
     case 'stand': break;   // bots: wait without auto-attacking (keeps last-hit control)
     default: { // idle / hold: auto-attack nearby non-building enemies
       const hold = o.type === 'hold', extra = hold ? 0 : h.isHero ? 1.2 : 5;   // summons / illusions acquire a little further

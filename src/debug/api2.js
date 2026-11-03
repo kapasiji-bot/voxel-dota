@@ -9,7 +9,7 @@ Object.assign(GameAPI, {
   // fullscreen + pointer lock (ui/fullscreen.js, ui/pointerlock.js, ui/vcursor.js); plSimulate(on) fakes a granted lock
   FS, fsActive, fsEnter, fsExit, toggleFullscreen, PL, plOn, plActive, plSetOption, plRequest, plMoveTo, plButton, plWheel, edgeAllowed, plCursorKind,
   plSimulate(on = true) { PL.sim = !!on; document.documentElement.classList.toggle('plLocked', plActive()); if (plActive()) plMoveTo(PL.x, PL.y); else { plHover(null); plDraw(); } },
-  DIFFS, unitById, teamPlan, teamTick, setPlan, teamAdv, knownEnemies, pickPushTarget, rallyFor, startPush, assignGank, teamDive, teamDest, roshReady, botTeam, cheeseTaker, aegisTaker,
+  DIFFS, unitById, teamPlan, teamTick, setPlan, teamAdv, knownEnemies, pickPushTarget, rallyFor, startPush, assignGank, teamDive, teamDest, roshReady, botTeam, cheeseTaker, aegisTaker, shardTaker, dropTaker,
   // B12 mid-game polish
   buybackCost, buybackReady, canBuyback, doBuyback, BB_CD,
   castGlyph, glyphReady, glyphActive, glyphState, GLYPH_CD, GLYPH_DUR, pressGlyph, pressBuyback, updateDeathUI,

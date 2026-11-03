@@ -1,5 +1,5 @@
 // ai/bot/jungle.js — B8/B10 bot jungle behaviour (botJungle is called from brain.js after the fight check, before lane play):
-//   botLoot — Aegis for the team's carry (aegisTaker), Cheese for the carry if it has no Aegis, else a support (cheeseTaker).
+//   botLoot — Aegis for the team's carry (aegisTaker); Cheese / Refresher Shard via cheeseTaker; full-inv Aegis → denyDrop.
 //   botTeam (teamexec.js) — the team plan: Roshan (B10: called by team.js; members gather at the pit opening, enter together
 //     when ≥ 3 are there or after 20 s, commit until Roshan dies unless team.js aborts on danger), group push, defend, ganks.
 //   botFarm — carries / tanks (level ≥ 5, from 4:00) farm their own side's camps while no enemy hero is seen and HP > 55 %:
@@ -14,11 +14,27 @@ function cheeseTaker(team) {
   const pref = h => (botRole(h) === 'carry' && !countItem(h, 'aegis') ? 2 : botRole(h) === 'support' ? 1 : 0);
   return hs.sort((a, c) => pref(c) - pref(a) || c.level - a.level)[0] || null;
 }
+function shardTaker(team) {
+  const hs = nearPit(team).filter(h => h.items.indexOf(null) >= 0 && !countItem(h, 'refresher_shard'));
+  const pref = h => (botRole(h) === 'carry' ? 2 : botRole(h) === 'support' ? 1 : 0);
+  return hs.sort((a, c) => pref(c) - pref(a) || c.level - a.level)[0] || null;
+}
+function dropTaker(d, team) {
+  if (d.item === 'aegis') return aegisTaker(team);
+  if (d.item === 'refresher_shard') return shardTaker(team);
+  return cheeseTaker(team);
+}
 function botLoot(h, b) {
   for (const d of drops) {
-    if (dst(h, d) > 26 || (d.item === 'aegis' ? aegisTaker(h.team) : cheeseTaker(h.team)) !== h) continue;
+    if (dst(h, d) > 26) continue;
+    if (dropTaker(d, h.team) !== h) continue;
+    if (d.item === 'aegis' && !freeSlotFor(h, 'aegis') && isDeniableDrop(d)) {
+      if (h.order.type !== 'denyDrop' || h.order.drop !== d) issueOrder(h, { type: 'denyDrop', drop: d });
+      return 'deny';
+    }
+    if (!freeSlotFor(h, d.item)) continue;
     if (h.order.type !== 'pickup' || h.order.drop !== d) issueOrder(h, { type: 'pickup', drop: d });
-    return 'aegis';
+    return d.item === 'aegis' ? 'aegis' : 'loot';
   }
   return null;
 }

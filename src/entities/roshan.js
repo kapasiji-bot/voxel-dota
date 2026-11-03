@@ -2,7 +2,8 @@
 // time (ROSH_STATS, re-applied every minute keeping HP %); Bash (passive 15 %: +50 damage, 1 s stun) and Slam (AoE magic
 // damage + slow, every 8 s). Only fights units INSIDE the pit (prefers whoever damaged it), walks back and regenerates when
 // nobody is there. On death: team gold (+ last-hit bonus) and XP to the killing team, drops 不朽之守护 Aegis (entities/drops.js)
-// and from the 2nd kill on 奶酪 Cheese; respawns 8–11 minutes later (random). Chat / kill feed lines on kill.
+// and from the 2nd kill on 奶酪 Cheese, from the 3rd kill on 刷新碎片 Refresher Shard; respawns 8–11 minutes later
+// (random). Ground Aegis is contested / deniable (entities/drops.js). Chat / kill feed lines on kill.
 const ROSH_RESPAWN = [480, 660], ROSH_TEAM_GOLD = 180, ROSH_LH_GOLD = 150, ROSH_XP = 500;
 const ROSH_STATS = min => ({ hp: 4000 + 110 * min, dmg: 55 + 3 * min, armor: 8 + 0.25 * min, slam: 70 + 4 * min });
 const rosh = () => G.rosh || (G.rosh = { unit: null, kills: 0, respawnAt: 0, lastScale: -1, log: [] });
@@ -67,10 +68,12 @@ function roshanDeath(u, killer) {
   R.log.push({ t: G.time, team, killer: kh ? kh.id : 0 });
   spawnDrop('aegis', u.x, u.z);
   if (R.kills >= 2) spawnDrop('cheese', u.x + 1.2, u.z - 0.6);
-  emit('roshanKill', { team, killer: kh ? kh.id : 0, kills: R.kills, respawnAt: R.respawnAt, cheese: R.kills >= 2 });
+  if (R.kills >= 3) spawnDrop('refresher_shard', u.x - 1.2, u.z + 0.6);
+  emit('roshanKill', { team, killer: kh ? kh.id : 0, kills: R.kills, respawnAt: R.respawnAt, cheese: R.kills >= 2, shard: R.kills >= 3 });
   const who = kh ? heroLabel(kh) : team >= 0 ? TEAM_CN[team] : '未知';
   if (team >= 0) killFeed(`${who}（${TEAM_CN[team]}）击杀了肉山！`, team, kh, null); else msg('肉山被击杀了', '#ffd54f');
-  msg(`肉山已被${team >= 0 ? TEAM_CN[team] : ''}击杀！不朽之守护掉落在肉山巢穴` + (R.kills >= 2 ? '（还有奶酪）' : ''), '#ffd54f');
+  const extra = R.kills >= 3 ? '（奶酪 + 刷新碎片）' : R.kills >= 2 ? '（还有奶酪）' : '';
+  msg(`肉山已被${team >= 0 ? TEAM_CN[team] : ''}击杀！不朽之守护掉落在肉山巢穴` + extra, '#ffd54f');
   burst(u.x, 2, u.z, 40, ['#8d6e63', '#ffcc80', '#ffd54f'], 6, 1.2, 0.4, 4);
   corpses.push({ u, t: 0 });
 }

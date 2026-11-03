@@ -354,7 +354,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = '112f2de83f';
+const BUILD_ID = 'b9bc862dff';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -2251,7 +2251,8 @@ function neutralDeath(u, killer) {
 // time (ROSH_STATS, re-applied every minute keeping HP %); Bash (passive 15 %: +50 damage, 1 s stun) and Slam (AoE magic
 // damage + slow, every 8 s). Only fights units INSIDE the pit (prefers whoever damaged it), walks back and regenerates when
 // nobody is there. On death: team gold (+ last-hit bonus) and XP to the killing team, drops 不朽之守护 Aegis (entities/drops.js)
-// and from the 2nd kill on 奶酪 Cheese; respawns 8–11 minutes later (random). Chat / kill feed lines on kill.
+// and from the 2nd kill on 奶酪 Cheese, from the 3rd kill on 刷新碎片 Refresher Shard; respawns 8–11 minutes later
+// (random). Ground Aegis is contested / deniable (entities/drops.js). Chat / kill feed lines on kill.
 const ROSH_RESPAWN = [480, 660], ROSH_TEAM_GOLD = 180, ROSH_LH_GOLD = 150, ROSH_XP = 500;
 const ROSH_STATS = min => ({ hp: 4000 + 110 * min, dmg: 55 + 3 * min, armor: 8 + 0.25 * min, slam: 70 + 4 * min });
 const rosh = () => G.rosh || (G.rosh = { unit: null, kills: 0, respawnAt: 0, lastScale: -1, log: [] });
@@ -2316,19 +2317,22 @@ function roshanDeath(u, killer) {
   R.log.push({ t: G.time, team, killer: kh ? kh.id : 0 });
   spawnDrop('aegis', u.x, u.z);
   if (R.kills >= 2) spawnDrop('cheese', u.x + 1.2, u.z - 0.6);
-  emit('roshanKill', { team, killer: kh ? kh.id : 0, kills: R.kills, respawnAt: R.respawnAt, cheese: R.kills >= 2 });
+  if (R.kills >= 3) spawnDrop('refresher_shard', u.x - 1.2, u.z + 0.6);
+  emit('roshanKill', { team, killer: kh ? kh.id : 0, kills: R.kills, respawnAt: R.respawnAt, cheese: R.kills >= 2, shard: R.kills >= 3 });
   const who = kh ? heroLabel(kh) : team >= 0 ? TEAM_CN[team] : '未知';
   if (team >= 0) killFeed(`${who}（${TEAM_CN[team]}）击杀了肉山！`, team, kh, null); else msg('肉山被击杀了', '#ffd54f');
-  msg(`肉山已被${team >= 0 ? TEAM_CN[team] : ''}击杀！不朽之守护掉落在肉山巢穴` + (R.kills >= 2 ? '（还有奶酪）' : ''), '#ffd54f');
+  const extra = R.kills >= 3 ? '（奶酪 + 刷新碎片）' : R.kills >= 2 ? '（还有奶酪）' : '';
+  msg(`肉山已被${team >= 0 ? TEAM_CN[team] : ''}击杀！不朽之守护掉落在肉山巢穴` + extra, '#ffd54f');
   burst(u.x, 2, u.z, 40, ['#8d6e63', '#ffcc80', '#ffd54f'], 6, 1.2, 0.4, 4);
   corpses.push({ u, t: 0 });
 }
 
 // ===== entities/drops.js =====
-// entities/drops.js — B8 items lying on the ground (Roshan's Aegis / Cheese). spawnDrop(item, x, z) shows a spinning voxel
-// item; heroes pick it up with the 'pickup' order (right-click it: ui/input.js; bots: ai/bot/jungle.js) when within 1.8.
+// entities/drops.js — B8 items lying on the ground (Roshan's Aegis / Cheese / Refresher Shard). spawnDrop(item, x, z) shows a
+// spinning voxel; heroes pick up with the 'pickup' order (right-click: ui/input.js; bots: ai/bot/jungle.js) when within 1.8.
 // Aegis rules (items/aegis.js): only real heroes may carry it, expires AEGIS_LIFE s after pickup; on death the holder
-// reincarnates at the death spot after 5 s (aegisSave, called first thing in combat/damage.js killUnit).
+// reincarnates at the death spot after 5 s (aegisSave). Ground Aegis is contested (either team may pick) and deniable
+// (denyDrop: Alt+right-click or A-click the drop) — destroyed with no pickup.
 const drops = [];
 const AEGIS_LIFE = 300, AEGIS_REVIVE = 5;
 function spawnDrop(item, x, z) {
@@ -2369,6 +2373,24 @@ function tickDrops(dt) {
   }
 }
 // death with an Aegis: consume it, "die" for AEGIS_REVIVE s without bounty / death count, reincarnate on the spot
+const isDeniableDrop = d => !!(d && ITEM_DEFS[d.item] && ITEM_DEFS[d.item].deniable);
+function denyDrop(h, d) {
+  if (!drops.includes(d)) return '物品已不存在';
+  if (!h || !h.isHero || h.isIllusion || h.dead) return '无法反补';
+  if (!isDeniableDrop(d)) return '该物品无法反补';
+  if (Math.hypot(h.x - d.x, h.z - d.z) > 2.2) {
+    if (h.order.type !== 'denyDrop' || h.order.drop !== d) issueOrder(h, { type: 'denyDrop', drop: d });
+    return null;
+  }
+  const id = d.item, name = ITEM_DEFS[id].name;
+  removeDrop(d);
+  emit('itemDeny', { unit: h.id, item: id, team: h.team });
+  if (id === 'aegis') emit('aegisDeny', { unit: h.id, team: h.team });
+  killFeed(`${heroLabel(h)}（${TEAM_CN[h.team]}）反补了${name}`, h.team, h, null);
+  msg(`${heroLabel(h)} 反补摧毁了${name}`, '#ff8a80');
+  burst(d.x, 1.2, d.z, 22, ['#ff8a80', '#ffca28', '#ffffff'], 4, 0.7, 0.25, 3);
+  return null;
+}
 function aegisSave(u) {
   const slot = u.items ? u.items.findIndex(it => it && it.id === 'aegis') : -1; if (slot < 0) return false;
   u.items[slot] = null; u.aegisT = undefined;
@@ -3599,6 +3621,11 @@ function heroAI(h, dt) {
       if (heroNav(h, o.drop.x, o.drop.z, dt, 1.0)) { h.order = { type: h.bot ? 'stand' : 'idle' }; const e = pickupDrop(h, o.drop); if (e && h === G.player) err(e); }
       break;
     }
+    case 'denyDrop': {   // polish batch 4: walk to deniable ground drop (Aegis) and destroy it
+      if (!drops.includes(o.drop) || !isDeniableDrop(o.drop)) { h.order = { type: h.bot ? 'stand' : 'idle' }; break; }
+      if (heroNav(h, o.drop.x, o.drop.z, dt, 1.0)) { h.order = { type: h.bot ? 'stand' : 'idle' }; const e = denyDrop(h, o.drop); if (e && h === G.player) err(e); }
+      break;
+    }
     case 'stand': break;   // bots: wait without auto-attacking (keeps last-hit control)
     default: { // idle / hold: auto-attack nearby non-building enemies
       const hold = o.type === 'hold', extra = hold ? 0 : h.isHero ? 1.2 : 5;   // summons / illusions acquire a little further
@@ -4173,7 +4200,7 @@ function botUseItems(h, b, s, mode, target) {
 
 // ===== ai/bot/jungle.js =====
 // ai/bot/jungle.js — B8/B10 bot jungle behaviour (botJungle is called from brain.js after the fight check, before lane play):
-//   botLoot — Aegis for the team's carry (aegisTaker), Cheese for the carry if it has no Aegis, else a support (cheeseTaker).
+//   botLoot — Aegis for the team's carry (aegisTaker); Cheese / Refresher Shard via cheeseTaker; full-inv Aegis → denyDrop.
 //   botTeam (teamexec.js) — the team plan: Roshan (B10: called by team.js; members gather at the pit opening, enter together
 //     when ≥ 3 are there or after 20 s, commit until Roshan dies unless team.js aborts on danger), group push, defend, ganks.
 //   botFarm — carries / tanks (level ≥ 5, from 4:00) farm their own side's camps while no enemy hero is seen and HP > 55 %:
@@ -4188,11 +4215,27 @@ function cheeseTaker(team) {
   const pref = h => (botRole(h) === 'carry' && !countItem(h, 'aegis') ? 2 : botRole(h) === 'support' ? 1 : 0);
   return hs.sort((a, c) => pref(c) - pref(a) || c.level - a.level)[0] || null;
 }
+function shardTaker(team) {
+  const hs = nearPit(team).filter(h => h.items.indexOf(null) >= 0 && !countItem(h, 'refresher_shard'));
+  const pref = h => (botRole(h) === 'carry' ? 2 : botRole(h) === 'support' ? 1 : 0);
+  return hs.sort((a, c) => pref(c) - pref(a) || c.level - a.level)[0] || null;
+}
+function dropTaker(d, team) {
+  if (d.item === 'aegis') return aegisTaker(team);
+  if (d.item === 'refresher_shard') return shardTaker(team);
+  return cheeseTaker(team);
+}
 function botLoot(h, b) {
   for (const d of drops) {
-    if (dst(h, d) > 26 || (d.item === 'aegis' ? aegisTaker(h.team) : cheeseTaker(h.team)) !== h) continue;
+    if (dst(h, d) > 26) continue;
+    if (dropTaker(d, h.team) !== h) continue;
+    if (d.item === 'aegis' && !freeSlotFor(h, 'aegis') && isDeniableDrop(d)) {
+      if (h.order.type !== 'denyDrop' || h.order.drop !== d) issueOrder(h, { type: 'denyDrop', drop: d });
+      return 'deny';
+    }
+    if (!freeSlotFor(h, d.item)) continue;
     if (h.order.type !== 'pickup' || h.order.drop !== d) issueOrder(h, { type: 'pickup', drop: d });
-    return 'aegis';
+    return d.item === 'aegis' ? 'aegis' : 'loot';
   }
   return null;
 }
@@ -4970,21 +5013,26 @@ function pickUnit(sx, sy, self) {
 function clickMarker(x, z, col) { ringP(x, z, 0.6, 10, col, 0.4, 0.18, 0.15, -1.2); }
 function issueMove(x, z) { issueOrder(G.player, { type: 'move', x, z }); clickMarker(x, z, '#4cff4c'); }
 function issueAttack(t) { issueOrder(G.player, { type: 'attack', target: t }); ringP(t.x, t.z, t.radius + 0.4, 14, '#ff3b3b', 0.4, 0.2, 0.15); }
-function handleRight(sx, sy) {
+function handleRight(sx, sy, ev) {
   const P = G.player; if (!P) return;
   if (G.targeting) { G.targeting = null; return; }
   if (ctlSel().every(u => u.dead)) return;
   const u = pickUnit(sx, sy), sel = ctlSel();   // orders go to every selected unit (ui/control.js)
   if (u && sel.some(s => validAttackTarget(s, u))) { for (const s of sel) if (validAttackTarget(s, u)) issueOrder(s, { type: 'attack', target: u }); ringP(u.x, u.z, u.radius + 0.4, 14, '#ff3b3b', 0.4, 0.2, 0.15); return; }
   if (u && u.team !== P.team && isInvuln(u)) err('该建筑处于无敌状态（需先摧毁前置防御塔）');
-  const g = groundAt(sx, sy), d = g && dropNear(g.x, g.z, 1.6); if (!g) return;   // B8: right-click Aegis / Cheese → pick up
-  if (d && !P.dead) { issueOrder(P, { type: 'pickup', drop: d }); clickMarker(d.x, d.z, '#ffca28'); } else { orderSel({ type: 'move' }, g); clickMarker(g.x, g.z, '#4cff4c'); }
+  const g = groundAt(sx, sy), d = g && dropNear(g.x, g.z, 1.6); if (!g) return;   // B8 pickup; Alt+RMB = deny deniable drops (Aegis)
+  if (d && !P.dead) {
+    if (ev && ev.altKey && isDeniableDrop(d)) { issueOrder(P, { type: 'denyDrop', drop: d }); clickMarker(d.x, d.z, '#ff8a80'); }
+    else { issueOrder(P, { type: 'pickup', drop: d }); clickMarker(d.x, d.z, '#ffca28'); }
+  } else { orderSel({ type: 'move' }, g); clickMarker(g.x, g.z, '#4cff4c'); }
 }
 function handleLeftTarget(sx, sy) {
   const P = G.player, tg = G.targeting; G.targeting = null;
   if ((tg.caster || P).dead && tg.kind !== 'amove') return;
   const g = groundAt(sx, sy), u = pickUnit(sx, sy);
   if (tg.kind === 'amove') {
+    const d = g && dropNear(g.x, g.z, 1.6);
+    if (d && isDeniableDrop(d) && !P.dead) { issueOrder(P, { type: 'denyDrop', drop: d }); clickMarker(d.x, d.z, '#ff8a80'); return; }
     if (u && validAttackTarget(P, u)) { for (const s of ctlSel()) if (validAttackTarget(s, u)) issueOrder(s, { type: 'attack', target: u }); }
     else if (g) { orderSel({ type: 'amove' }, g); clickMarker(g.x, g.z, '#ff3b3b'); }
     return;
@@ -5030,7 +5078,7 @@ canvas.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('mousedown', e => {
   if (!G.started || G.over) return;
-  if (e.button === 2) handleRight(e.clientX, e.clientY);
+  if (e.button === 2) handleRight(e.clientX, e.clientY, e);
   else if (e.button === 0) {
     if (G.targeting) handleLeftTarget(e.clientX, e.clientY);
     else boxStart(e.clientX, e.clientY);   // click or box select on mouseup (ui/control.js)
@@ -5502,7 +5550,7 @@ function updateHUD() {
   } else ti.classList.add('hidden');
 }
 const HELP_HTML = `<div style="color:#ffd54f;font-size:16px;font-weight:bold;margin-bottom:4px">操作说明</div>
-<b>右键</b>移动 / 攻击目标（对生命低于 50% 的友方小兵右键可反补）<br>
+<b>右键</b>移动 / 攻击目标（对生命低于 50% 的友方小兵右键可反补；地上的不朽之守护：右键拾取，Alt+右键 / A 瞄准反补）<br>
 <b>Q W E R</b>施放技能（需选择目标时左键确认，右键/Esc 取消）<br>
 <b>Alt + Q/W/E/R</b>学习技能（或点击技能上方的“+”）<br>
 <b>A + 左键</b>攻击移动<br>
@@ -6514,7 +6562,7 @@ const GameAPI = {
   // B7: items / scepter / shop UI
   isInvuln, itemCat, setShopTab, setShopSearch, itemTip, skillTip, recipeTree, hasScepter, scepterDef, applyScepter, itemTargetError, absorbMagic,
   botItemActives, botNextPart, botHas, itemPrice, recipeParts, toggleShop, buildShop, updateShop,
-  JUNGLE, PIT, NEUTRAL, CAMP_BOX, LEASH, NEUTRAL_TYPES, CAMP_KINDS, jg, spawnCamp, tickCamps, campBlocker, rosh, spawnRoshan, inPit, drops, spawnDrop, pickupDrop,
+  JUNGLE, PIT, NEUTRAL, CAMP_BOX, LEASH, NEUTRAL_TYPES, CAMP_KINDS, jg, spawnCamp, tickCamps, campBlocker, rosh, spawnRoshan, inPit, drops, spawnDrop, pickupDrop, denyDrop, isDeniableDrop, AEGIS_LIFE, AEGIS_REVIVE,
   nearShopSite, buyWhere, needsSecret, shopLocLabel, shopSiteHere, sideSells, courierOrder, spawnCourier, courierBagAdd, botJungle, botCourier, pickCamp, roshCallFor, updateCourierHUD,
   campNow() { jg().nextCamp = G.time; tickCamps(); }, };   // B8 jungle / Roshan / drops / shops / courier; campNow = minute-mark camp check now
 window.GameAPI = GameAPI; window.DEBUG = GameAPI; window.VD = GameAPI;   // VD kept for older scripts
@@ -6539,7 +6587,7 @@ Object.assign(GameAPI, {
   // fullscreen + pointer lock (ui/fullscreen.js, ui/pointerlock.js, ui/vcursor.js); plSimulate(on) fakes a granted lock
   FS, fsActive, fsEnter, fsExit, toggleFullscreen, PL, plOn, plActive, plSetOption, plRequest, plMoveTo, plButton, plWheel, edgeAllowed, plCursorKind,
   plSimulate(on = true) { PL.sim = !!on; document.documentElement.classList.toggle('plLocked', plActive()); if (plActive()) plMoveTo(PL.x, PL.y); else { plHover(null); plDraw(); } },
-  DIFFS, unitById, teamPlan, teamTick, setPlan, teamAdv, knownEnemies, pickPushTarget, rallyFor, startPush, assignGank, teamDive, teamDest, roshReady, botTeam, cheeseTaker, aegisTaker,
+  DIFFS, unitById, teamPlan, teamTick, setPlan, teamAdv, knownEnemies, pickPushTarget, rallyFor, startPush, assignGank, teamDive, teamDest, roshReady, botTeam, cheeseTaker, aegisTaker, shardTaker, dropTaker,
   // B12 mid-game polish
   buybackCost, buybackReady, canBuyback, doBuyback, BB_CD,
   castGlyph, glyphReady, glyphActive, glyphState, GLYPH_CD, GLYPH_DUR, pressGlyph, pressBuyback, updateDeathUI,
@@ -10682,9 +10730,10 @@ registerHero({
 
 // ===== items/aegis.js =====
 // items/aegis.js — B8 Roshan drops (never sold in shops: noShop). 不朽之守护 Aegis: reincarnation on death (entities/drops.js
-// aegisSave), expires 5 min after pickup, cannot be sold. 奶酪 Cheese: consumable, instantly restores 2500 HP / 1500 mana.
-registerItem({ id: 'aegis', order: 95, name: '不朽之守护', en: 'Aegis of the Immortal', icon: '盾', color: '#ffca28', cost: 0, noShop: true, noSell: true,
-  desc: '被动：持有者死亡后 5 秒在原地复活（消耗）。拾取后 5 分钟消失。肉山掉落，无法出售。' });
+// aegisSave), expires 5 min after pickup, cannot be sold. Ground Aegis is contested (either team picks) and deniable
+// (Alt+right-click / A-click → denyDrop). 奶酪 Cheese: consumable heal. 刷新碎片 is in refresher_shard.js (3rd+ kill).
+registerItem({ id: 'aegis', order: 95, name: '不朽之守护', en: 'Aegis of the Immortal', icon: '盾', color: '#ffca28', cost: 0, noShop: true, noSell: true, deniable: true,
+  desc: '被动：持有者死亡后 5 秒在原地复活（消耗）。拾取后 5 分钟消失。肉山掉落，无法出售。地上时双方都可拾取；Alt+右键或 A 键瞄准可反补摧毁。' });
 registerItem({ id: 'cheese', order: 96, name: '奶酪', en: 'Cheese', icon: '酪', color: '#ffd54f', cost: 0, noShop: true, consumable: true,
   desc: '主动（消耗品）：立即恢复 2500 点生命值和 1500 点魔法值。第二次及以后击杀肉山掉落。',
   active: { target: 'none', cd: 0, onUse(c) { const h = c.caster; h.hp = Math.min(h.maxHp, h.hp + 2500); h.mana = Math.min(h.maxMana, h.mana + 1500);
@@ -11125,6 +11174,21 @@ registerItem({ id: 'refresher', order: 70, name: '刷新球', en: 'Refresher Orb
     AB.ringP(h.x, h.z, 0.6, 28, ['#26c6da', '#80deea'], 0.5, 0.35, 0.55, 10);
     AB.float(h, '刷新！', '#4dd0e1', 20, 1.2);
     emit('refresher', { unit: h.id });
+  } } });
+
+// ===== items/refresher_shard.js =====
+// items/refresher_shard.js — 刷新碎片 Refresher Shard: Roshan 3rd+ kill drop. Consumable; refreshes ability CDs only
+// (not items — unlike 刷新球). noShop / noSell; pick up from the pit like Aegis / Cheese (entities/drops.js).
+registerItem({ id: 'refresher_shard', order: 97, name: '刷新碎片', en: 'Refresher Shard', icon: '碎', color: '#26c6da', cost: 0,
+  noShop: true, noSell: true, consumable: true,
+  desc: '肉山第 3 次及以后击杀掉落。主动·刷新：重置自身所有技能冷却（不影响物品）。消耗后消失。',
+  active: { target: 'none', cd: 0, mana: 0, onUse(c) {
+    const h = c.caster;
+    for (const ab of h.abilities) { ab.cd = 0; ab.cdMax = 0; }
+    AB.burst(h.x, 1.5, h.z, 28, ['#4dd0e1', '#e0f7fa', '#ffd54f'], 7, 0.55, 0.28, 3.2, 0);
+    AB.ringP(h.x, h.z, 0.5, 24, ['#26c6da', '#80deea'], 0.45, 0.3, 0.5, 9);
+    AB.float(h, '碎片刷新！', '#4dd0e1', 18, 1.1);
+    emit('refresherShard', { unit: h.id });
   } } });
 
 // ===== items/salve.js =====

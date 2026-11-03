@@ -111,7 +111,7 @@ function updateHUD() {
   } else ti.classList.add('hidden');
 }
 const HELP_HTML = `<div style="color:#ffd54f;font-size:16px;font-weight:bold;margin-bottom:4px">操作说明</div>
-<b>右键</b>移动 / 攻击目标（对生命低于 50% 的友方小兵右键可反补）<br>
+<b>右键</b>移动 / 攻击目标（对生命低于 50% 的友方小兵右键可反补；地上的不朽之守护：右键拾取，Alt+右键 / A 瞄准反补）<br>
 <b>Q W E R</b>施放技能（需选择目标时左键确认，右键/Esc 取消）<br>
 <b>Alt + Q/W/E/R</b>学习技能（或点击技能上方的“+”）<br>
 <b>A + 左键</b>攻击移动<br>
