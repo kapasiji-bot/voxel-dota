@@ -343,7 +343,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = '56fd8b7e7e';
+const BUILD_ID = '9d9e572d47';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -7657,6 +7657,156 @@ registerHero({
   ],
 });
 
+// ===== heroes/disruptor.js =====
+// heroes/disruptor.js — 干扰者 Disruptor (ranged intelligence). Thunder Strike (multi-pulse), Glimpse (rewind),
+// Kinetic Field (circular barrier), Static Storm (channel silence + escalating damage).
+const DIS_STRIKE = { id: 'dis_strike', tag: '雷击', color: '#7e57c2', debuff: true };
+const DIS_FIELD = { id: 'dis_field', tag: '力场', color: '#b39ddb', debuff: true, states: ['rooted'] };
+function disruptorSample(u) {
+  const log = u._glLog || (u._glLog = []);
+  log.push({ t: G.time, x: u.x, z: u.z });
+  while (log.length && log[0].t < G.time - 5.5) log.shift();
+}
+registerHero({
+  id: 'disruptor', order: 39, name: '干扰者', title: '干扰者', type: '远程 · 智力', color: '#5e35b1', nameColor: '#b39ddb',
+  desc: '远程智力型控制。雷霆一击反复轰击，时光窥视强制回位，动能力场困住敌人，静态风暴沉默并持续伤害。',
+  ai: { role: 'support', aggr: 0.95, skills: [0, 2, 1, 0, 0, 3, 0, 2, 2, 2, 3, 1, 1, 1, 3], build: ['arcane', 'force', 'glimmer', 'scepter', 'scythe'],
+    combos: [{ id: 'dis_field_storm', steps: [{ slot: 2, at: 'target' }, { slot: 3, at: 'center' }, { slot: 0, at: 'target' }], min: 2, radius: 5 }] },
+  stats: { primary: 'int', str: 19, strG: 2.1, agi: 13, agiG: 1.4, int: 22, intG: 2.9, dmg: 24, armor: 0, bat: 1.7, range: 12,
+    atkPoint: 0.4, backswing: 0.5, speed: 6.7, proj: 22, projColor: '#b39ddb', hpRegen: 0.75, manaRegen: 0.9, radius: 0.62, height: 3.3 },
+  portrait: { headY: 2.75 },
+  model: () => humanoid({ pants: '#311b92', boots: '#1a237e', skin: '#ce93d8', sleeve: '#7e57c2', hip: 0.26, sh: 0.6, legH: 1.1, bodyH: 1.05, legW: 0.36,
+    body: [[0, 0.5, 0, 0.85, 1.05, 0.52, '#7e57c2'], [0, 0.55, 0.27, 0.5, 0.4, 0.04, '#e1bee7'], [0, 0.1, 0, 0.95, 0.25, 0.6, '#4527a0'],
+      [0, 1.5, 0, 0.72, 0.72, 0.72, '#ce93d8'], [0, 1.9, -0.05, 0.95, 0.4, 0.95, '#5e35b1'], [0, 2.2, 0, 0.35, 0.35, 0.35, '#b39ddb'],
+      [-0.18, 1.58, 0.38, 0.12, 0.08, 0.02, '#311b92'], [0.18, 1.58, 0.38, 0.12, 0.08, 0.02, '#311b92'],
+      [0, 1.0, -0.4, 0.8, 1.3, 0.1, '#4527a0']],
+    bodyGlow: [[0, 2.15, 0.15, 0.25, 0.3, 0.25, '#ea80fc'], [-0.4, 1.9, 0, 0.15, 0.5, 0.15, '#b39ddb'], [0.4, 1.9, 0, 0.15, 0.5, 0.15, '#b39ddb']],
+    armR: [[0, -0.42, 0, 0.34, 0.9, 0.38, '#7e57c2'], [0, -0.9, 0, 0.45, 0.35, 0.45, '#5e35b1']],
+    armL: [[0, -0.42, 0, 0.34, 0.9, 0.38, '#7e57c2'], [0, -0.9, 0, 0.36, 0.22, 0.4, '#ce93d8']] }),
+  abilities: [
+    { id: 'thunder_strike', ai: { nuke: true }, shard: { desc: '雷击次数 +1，伤害 +20。', values: { strikes: 4, dmg: [65, 90, 115, 140] } },
+      key: 'Q', name: '雷霆一击', icon: '雷', color: '#7e57c2', target: 'unit', range: 14, castPoint: 0.05,
+      mana: [125, 130, 135, 140], cd: [18, 15, 12, 9], values: { dmg: [45, 70, 95, 120], strikes: 3, interval: 2, radius: 3.5, slow: 0.5, slowDur: 1 },
+      fmt: { slow: v => Math.round(v * 100) + '%' },
+      text: L => `标记一名敌人，共 ${L.strikes} 次雷击（间隔 ${L.interval} 秒）：每次对目标及 ${L.radius} 码敌人造成 ${L.dmg} 点魔法伤害并减速 ${L.slow}，持续 ${L.slowDur} 秒。`,
+      onCast(c, t) {
+        const h = c.caster, n = c.v('strikes'), iv = c.v('interval'), dmg = c.v('dmg'), r = c.v('radius');
+        AB.addModifier(t, DIS_STRIKE, h, { dur: n * iv + 0.2 });
+        emit('thunderStrike', { unit: h.id, target: t.id });
+        let i = 0;
+        const boom = () => {
+          if (t.dead || i >= n) return;
+          const cx = t.x, cz = t.z;
+          for (const u of AB.enemiesIn(h, cx, cz, r)) {
+            if (u.isBuilding) continue;
+            AB.damage(h, u, dmg, 'magic', 'thunder_strike');
+            AB.slow(u, h, c.v('slowDur'), c.v('slow'));
+          }
+          AB.skyBolt(t, '#ea80fc'); AB.burst(cx, 1.5, cz, 20, ['#b39ddb', '#ffffff', '#7e57c2'], 5, 0.5, 0.25, 2.5, 0);
+          AB.ringP(cx, cz, 0.4, 18, ['#ce93d8', '#e1bee7'], 0.35, 0.25, 0.35, r / 0.4);
+          i++; if (i < n) AB.delay(iv, boom);
+        };
+        boom();
+      } },
+    { id: 'glimpse', ai: { disable: true }, key: 'W', name: '时光窥视', icon: '视', color: '#9575cd', target: 'unit', range: 14, castPoint: 0.2,
+      mana: 100, cd: [48, 38, 28, 18], values: { lookback: 4 },
+      text: L => `将一名敌方英雄送回 ${L.lookback} 秒前所在的位置。`,
+      onCast(c, t) {
+        const h = c.caster; if (!t.isHero) { AB.float(h, '仅限英雄', '#b39ddb', 14, 0.8); return; }
+        const log = t._glLog || [], cut = G.time - c.v('lookback');
+        let best = null;
+        for (const s of log) if (s.t <= cut) best = s;
+        if (!best && log.length) best = log[0];
+        if (!best) best = { x: t.x - Math.sin(t.facing) * 8, z: t.z - Math.cos(t.facing) * 8 };
+        const dest = { x: best.x, z: best.z }, ox = t.x, oz = t.z;
+        AB.burst(ox, 1.4, oz, 16, ['#b39ddb', '#e1bee7'], 4, 0.45, 0.25, 2, 0);
+        AB.beam(ox, 1.5, oz, dest.x, 1.5, dest.z, '#ea80fc', 0.25, 0.5);
+        AB.delay(0.3, () => {
+          if (t.dead) return;
+          AB.teleport(t, dest, { colors: ['#7e57c2', '#e1bee7', '#ffffff'] });
+          AB.float(t, '窥视！', '#b39ddb', 18, 1.0);
+          emit('glimpse', { unit: h.id, target: t.id });
+        });
+      } },
+    { id: 'kinetic_field', ai: { aoe: 2, disable: true }, key: 'E', name: '动能力场', icon: '场', color: '#673ab7', target: 'point', range: 12, castPoint: 0.05,
+      mana: [70, 70, 70, 70], cd: [19, 16, 13, 10], values: { radius: 4.2, delay: 1.0, dur: [2.6, 3.0, 3.4, 3.8] },
+      text: L => `${L.delay} 秒后在目标点形成半径 ${L.radius} 码的力场，持续 ${L.dur} 秒：敌人无法穿越边界。`,
+      onCast(c, pt) {
+        const h = c.caster, R = c.v('radius'), dur = c.v('dur'), delay = c.v('delay');
+        AB.ringP(pt.x, pt.z, R, 40, ['#b39ddb', '#7e57c2'], 0.5, delay, 0.25);
+        emit('kineticField', { unit: h.id });
+        AB.delay(delay, () => {
+          AB.ringP(pt.x, pt.z, R, 48, ['#ea80fc', '#ffffff'], 0.55, 0.35, 0.4);
+          AB.groundArea({ caster: h, x: pt.x, z: pt.z, radius: R + 1.2, dur, tick: 0.05,
+            onTick(list) {
+              for (const u of list) {
+                if (u.isBuilding || u.isWard) continue;
+                const d = Math.hypot(u.x - pt.x, u.z - pt.z), ang = Math.atan2(u.x - pt.x, u.z - pt.z);
+                if (d < R - 0.2) {
+                  // inside near rim: keep inside
+                  if (d > R - 0.55) {
+                    const nx = pt.x + Math.sin(ang) * (R - 0.7), nz = pt.z + Math.cos(ang) * (R - 0.7);
+                    AB.pull(u, nx, nz, Math.min(1.8, d - (R - 0.7)));
+                    if (!getMod(u, 'dis_field')) AB.addModifier(u, DIS_FIELD, h, { dur: 0.15 });
+                  }
+                } else if (d < R + 0.9) {
+                  // outside pressing in: keep outside
+                  const nx = pt.x + Math.sin(ang) * (R + 0.55), nz = pt.z + Math.cos(ang) * (R + 0.55);
+                  AB.pull(u, nx, nz, Math.min(1.8, (R + 0.55) - d + 1.2));
+                  if (!getMod(u, 'dis_field')) AB.addModifier(u, DIS_FIELD, h, { dur: 0.15 });
+                }
+              }
+            },
+            fx(a, dt) {
+              if (Math.random() < dt * 12) {
+                const ang = Math.random() * 6.28;
+                spawnP(pt.x + Math.cos(ang) * R, rnd(0.2, 1.8), pt.z + Math.sin(ang) * R, 0, 0.4, 0, 0.4, 0.18, '#ce93d8');
+              }
+            } });
+        });
+      } },
+    { id: 'static_storm', ai: { ultAoe: { radius: 'radius', min: 2 }, commit: true },
+      scepter: { desc: '风暴伤害 +40，沉默贯穿魔免。', values: { dpsEnd: [240, 300, 360] } },
+      key: 'R', name: '静态风暴', icon: '暴', color: '#4527a0', ult: true, target: 'point', range: 12, castPoint: 0.05, channel: 5,
+      mana: [125, 175, 225], cd: [90, 80, 70], values: { radius: 5, dpsStart: 40, dpsEnd: [170, 220, 270], silence: true },
+      text: L => `终极技能（持续施法 5 秒）：在目标点形成静态风暴（半径 ${L.radius}）。期间敌人被沉默，伤害从 ${L.dpsStart} 升至 ${L.dpsEnd} 点/秒。`,
+      onChannelStart(c, pt, ch) {
+        const h = c.caster; ch.data.pt = { x: pt.x, z: pt.z }; ch.data.t = 0;
+        AB.ringP(pt.x, pt.z, c.v('radius'), 40, ['#7e57c2', '#ea80fc'], 0.5, 0.4, 0.45);
+        emit('staticStorm', { unit: h.id });
+        AB.float(h, '静态风暴！', '#b39ddb', 20, 1.1);
+      },
+      onChannelTick(c, pt, dt, ch) {
+        const h = c.caster, p = ch.data.pt, R = c.v('radius');
+        ch.data.t = (ch.data.t || 0) + dt;
+        const frac = Math.min(1, ch.data.t / 5), dps = c.v('dpsStart') + (c.v('dpsEnd') - c.v('dpsStart')) * frac;
+        for (const u of AB.enemiesIn(h, p.x, p.z, R)) {
+          if (u.isBuilding) continue;
+          AB.silence(u, h, 0.35);
+          AB.damage(h, u, dps * dt, 'magic', 'static_storm', { silent: true });
+        }
+        if (Math.random() < dt * 18) {
+          const a = Math.random() * 6.28, rr = Math.random() * R;
+          spawnP(p.x + Math.cos(a) * rr, rnd(0.3, 2.5), p.z + Math.sin(a) * rr, 0, 2, 0, 0.5, 0.2, '#e1bee7');
+        }
+        if ((ch.data.ring = (ch.data.ring || 0) - dt) <= 0) { ch.data.ring = 0.4; AB.ringP(p.x, p.z, 0.6, 20, ['#7e57c2', '#b39ddb'], 0.35, 0.25, 0.3, R / 0.6); }
+      },
+      onChannelEnd(c, pt, interrupted, ch) { emit('staticStormEnd', { unit: c.caster.id, interrupted }); } },
+  ],
+});
+// sample positions for Glimpse while disruptor is alive
+effects.push({ update(dt) {
+  if (!G || !G.heroes) return false;
+  const has = G.heroes.some(h => h.def && h.def.id === 'disruptor' && !h.isIllusion);
+  if (!has) return false;
+  for (const u of G.heroes) {
+    if (u.dead || u.isIllusion) continue;
+    u._glAcc = (u._glAcc || 0) + dt;
+    if (u._glAcc >= 0.25) { u._glAcc = 0; disruptorSample(u); }
+  }
+  return false;
+} });
+
 // ===== heroes/ember.js =====
 // heroes/ember.js — 灰烬之灵 Ember Spirit (melee agility). Searing Chains (AoE root), Flame Guard (magic barrier + DPS),
 // Sleight of Fist (AoE jump-hits then return), Fire Remnant (place charges; recast activates dash through remnants).
@@ -9413,6 +9563,224 @@ registerHero({
   ],
 });
 
+// ===== heroes/sshaman.js =====
+// heroes/sshaman.js — 暗影萨满 Shadow Shaman (ranged intelligence). Ether Shock (chain), Hex, Shackles (channel stun),
+// Mass Serpent Ward (stationary attacking summons).
+registerSummon({ id: 'ss_ward', name: '蛇棒', hp: 150, armor: 0, dmg: [40, 40], bat: 1.0, range: 9, proj: 24, projColor: '#81c784',
+  speed: 0.01, radius: 0.4, height: 2.2, gold: 20, xp: 10, vision: 8, stationary: true, fx: ['#66bb6a', '#1b5e20', '#ffffff'],
+  portrait: { headY: 1.6 },
+  model: () => ({ body: { p: [0, 0, 0], b: [[0, 0.4, 0, 0.35, 0.9, 0.35, '#5d4037'], [0, 1.1, 0, 0.55, 0.7, 0.45, '#2e7d32'],
+    [0, 1.7, 0, 0.35, 0.45, 0.35, '#81c784'], [-0.12, 1.55, 0.2, 0.1, 0.1, 0.02, '#ffeb3b'], [0.12, 1.55, 0.2, 0.1, 0.1, 0.02, '#ffeb3b']],
+    g: [[0, 1.85, 0, 0.2, 0.25, 0.2, '#aed581']] } }) });
+const SS_SHACKLE = { id: 'ss_shackle', tag: '枷锁', color: '#8d6e63', debuff: true, states: ['stunned'] };
+registerHero({
+  id: 'sshaman', order: 40, name: '暗影萨满', title: '拉什塔泽尔', type: '远程 · 智力', color: '#2e7d32', nameColor: '#aed581',
+  desc: '远程智力型控制。以太冲击跳跃打击，妖术变蛙，枷锁持续禁锢，集群蛇棒输出建筑与英雄。',
+  ai: { role: 'support', aggr: 1.0, skills: [1, 0, 2, 1, 1, 3, 1, 0, 0, 0, 3, 2, 2, 2, 3], build: ['arcane', 'blink', 'force', 'scepter', 'scythe'],
+    combos: [{ id: 'ss_hex_shackle', steps: [{ slot: 1 }, { slot: 2, at: 'target' }], min: 1, radius: 4 }] },
+  stats: { primary: 'int', str: 19, strG: 2.0, agi: 16, agiG: 1.6, int: 23, intG: 3.2, dmg: 22, armor: 1, bat: 1.7, range: 11,
+    atkPoint: 0.3, backswing: 0.5, speed: 6.6, proj: 20, projColor: '#aed581', hpRegen: 0.8, manaRegen: 1.0, radius: 0.6, height: 3.1 },
+  portrait: { headY: 2.55 },
+  model: () => humanoid({ pants: '#1b5e20', boots: '#3e2723', skin: '#81c784', sleeve: '#33691e', hip: 0.24, sh: 0.55, legH: 1.0, bodyH: 0.95, legW: 0.34,
+    body: [[0, 0.45, 0, 0.8, 0.95, 0.5, '#33691e'], [0, 0.5, 0.26, 0.45, 0.35, 0.04, '#c5e1a5'], [0, 0.08, 0, 0.9, 0.22, 0.55, '#1b5e20'],
+      [0, 1.35, 0, 0.68, 0.68, 0.68, '#81c784'], [0, 1.7, -0.05, 0.9, 0.4, 0.85, '#5d4037'], [0, 2.05, 0.1, 0.55, 0.35, 0.55, '#8d6e63'],
+      [-0.2, 1.9, 0.15, 0.2, 0.45, 0.15, '#ffeb3b'], [0.2, 1.9, 0.15, 0.2, 0.45, 0.15, '#ffeb3b'],
+      [-0.15, 1.42, 0.36, 0.12, 0.08, 0.02, '#1b5e20'], [0.15, 1.42, 0.36, 0.12, 0.08, 0.02, '#1b5e20']],
+    bodyGlow: [[0, 1.95, 0.3, 0.25, 0.2, 0.05, '#ffeb3b']],
+    armR: [[0, -0.4, 0, 0.32, 0.85, 0.34, '#33691e'], [0, -0.15, 0.2, 0.1, 1.6, 0.1, '#5d4037'], [0, 0.7, 0.2, 0.35, 0.35, 0.35, '#efebe9']],
+    armL: [[0, -0.4, 0, 0.32, 0.85, 0.34, '#33691e'], [0, -0.85, 0, 0.34, 0.2, 0.36, '#81c784']] }),
+  abilities: [
+    { id: 'ether_shock', ai: { nuke: true }, shard: { desc: '以太冲击伤害 +40，跳跃 +1。', values: { dmg: [180, 240, 300, 360], jumps: [2, 4, 6, 8] } },
+      key: 'Q', name: '以太冲击', icon: '冲', color: '#66bb6a', target: 'unit', range: 11, castPoint: 0.3,
+      mana: [95, 105, 135, 160], cd: [14, 12, 10, 8], values: { dmg: [140, 200, 260, 320], jumps: [1, 3, 5, 7], radius: 6 },
+      text: L => `释放跳跃闪电，最多命中 ${L.jumps} 个额外敌人（共最多 ${L.jumps}+1），每个造成 ${L.dmg} 点魔法伤害。`,
+      onCast(c, t) {
+        const h = c.caster;
+        AB.chain({ caster: h, first: t, jumps: c.v('jumps') + 1, radius: c.v('radius'), delay: 0.1, ability: 'ether_shock', color: '#aed581',
+          onHit(u) { AB.damage(h, u, c.v('dmg'), 'magic', 'ether_shock'); } });
+        emit('etherShock', { unit: h.id, target: t.id });
+      } },
+    { id: 'ss_hex', ai: { disable: true }, key: 'W', name: '妖术', icon: '蛙', color: '#8bc34a', target: 'unit', range: 10, castPoint: 0,
+      mana: [70, 110, 150, 190], cd: [20, 16, 12, 8], values: { dur: [1.25, 1.75, 2.25, 2.75] },
+      text: L => `把一名敌人变成小动物，持续 ${L.dur} 秒：无法攻击和施法，移动速度大幅降低。`,
+      onCast(c, t) { AB.hex(t, c.caster, c.v('dur')); AB.float(t, '呱！', '#c5e1a5', 18, 1); emit('ssHex', { unit: c.caster.id, target: t.id }); } },
+    { id: 'shackles', ai: { disable: true, commit: true }, key: 'E', name: '枷锁', icon: '锁', color: '#6d4c41', target: 'unit', range: 7, castPoint: 0.3,
+      channel: [2.75, 3.5, 4.25, 5.0], mana: [125, 140, 155, 170], cd: [16, 14, 12, 10],
+      values: { dps: [60, 80, 100, 120], breakR: 12 },
+      text: L => `持续施法：用枷锁禁锢一名敌人并每秒造成 ${L.dps} 点魔法伤害。距离超过 ${L.breakR} 码或被打断则结束。`,
+      onChannelStart(c, t, ch) {
+        AB.addModifier(t, SS_SHACKLE, c.caster, { dur: ch.dur + 0.1 });
+        emit('shackles', { unit: c.caster.id, target: t.id });
+      },
+      onChannelTick(c, t, dt, ch) {
+        const h = c.caster;
+        if (!t || t.dead || dst(h, t) > c.v('breakR') || hasState(t, 'magicImmune')) return false;
+        if (!getMod(t, 'ss_shackle')) return false;
+        AB.damage(h, t, c.v('dps') * dt, 'magic', 'shackles', { silent: true });
+        if ((ch.data.fx = (ch.data.fx || 0) - dt) <= 0) {
+          ch.data.fx = 0.08; AB.tetherFx(t, h.x, h.z, '#a1887f');
+          spawnP(t.x + rnd(-0.3, 0.3), rnd(0.5, 2), t.z + rnd(-0.3, 0.3), 0, 0.5, 0, 0.35, 0.15, '#8d6e63');
+        }
+      },
+      onChannelEnd(c, t) { if (t) removeModById(t, 'ss_shackle'); } },
+    { id: 'serpent_ward', ai: { summon: 'ss_ward', ultAoe: { radius: 5, min: 1, units: true } },
+      scepter: { desc: '蛇棒攻击力 +25，数量 +2。', values: { count: [10, 12, 14], dmg: [65, 85, 105] } },
+      key: 'R', name: '群蛇守卫', icon: '蛇', color: '#1b5e20', ult: true, target: 'point', range: 9, castPoint: 0.3,
+      mana: [200, 300, 400], cd: [110, 100, 90], values: { count: [8, 10, 12], dmg: [40, 60, 80], dur: 45, spread: 9 },
+      text: L => `终极技能：在目标点周围召唤 ${L.count} 根蛇棒，持续 ${L.dur} 秒。每根攻击力 ${L.dmg}，射程 ${L.reach} 码，优先攻击英雄与建筑。`,
+      onCast(c, pt) {
+        const h = c.caster, n = c.v('count'), dmg = c.v('dmg'), dur = c.v('dur');
+        for (const w of AB.owned(h, 'ss_ward')) { w.expired = true; AB.kill(w, null); }
+        const wards = [];
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * 6.28, r = 1.2 + (i % 3) * 0.55;
+          const wx = pt.x + Math.cos(a) * r, wz = pt.z + Math.sin(a) * r;
+          const w = AB.summon(h, 'ss_ward', wx, wz, { lvl: c.lvl, dmg: [dmg, dmg], dur, gold: 20, xp: 10 });
+          w.order = { type: 'hold' }; wards.push(w);
+        }
+        AB.ringP(pt.x, pt.z, 0.5, 28, ['#66bb6a', '#c5e1a5'], 0.45, 0.3, 0.4, 8);
+        AB.float(h, '群蛇守卫！', '#aed581', 20, 1.1);
+        emit('serpentWard', { unit: h.id, n: wards.length });
+      } },
+  ],
+});
+
+// ===== heroes/storm.js =====
+// heroes/storm.js — 风暴之灵 Storm Spirit (ranged intelligence). Static Remnant (place+auto explode),
+// Electric Vortex (pull), Overload (next-attack AoE after cast), Ball Lightning (mana-cost dash).
+const STORM_OV = { id: 'storm_ov', name: '超负荷', color: '#80d8ff' };
+function stormRemnantFx(r) {
+  const mat = new T.MeshBasicMaterial({ color: '#40c4ff', transparent: true, opacity: 0.8 }), core = new T.Mesh(boxG, mat);
+  core.scale.set(0.65, 1.3, 0.65); scene.add(core);
+  return { update(dt) { core.position.set(r.x, 1.0 + Math.sin(G.time * 7) * 0.12, r.z); core.rotation.y += dt * 5;
+    if (Math.random() < 0.45) spawnP(r.x + rnd(-0.3, 0.3), rnd(0.4, 2), r.z + rnd(-0.3, 0.3), 0, 1, 0, 0.35, 0.16, '#e1f5fe'); },
+    end() { scene.remove(core); mat.dispose(); } };
+}
+function stormDetonate(h, rem, dmg, radius) {
+  if (!rem || rem.dead) return; rem.dead = true;
+  if (rem.fx) rem.fx.end();
+  const list = h._remnants; if (list) { const i = list.indexOf(rem); if (i >= 0) list.splice(i, 1); }
+  for (const u of AB.enemiesIn(h, rem.x, rem.z, radius)) if (!u.isBuilding) AB.damage(h, u, dmg, 'magic', 'static_remnant');
+  AB.burst(rem.x, 1.4, rem.z, 28, ['#40c4ff', '#ffffff', '#0277bd'], 6, 0.55, 0.3, 3, 0);
+  AB.ringP(rem.x, rem.z, 0.5, 24, ['#80d8ff', '#e1f5fe'], 0.4, 0.28, 0.45, radius / 0.5);
+  emit('staticRemnant', { unit: h.id, explode: true });
+}
+registerHero({
+  id: 'storm', order: 38, name: '风暴之灵', title: '莱卡洛斯', type: '远程 · 智力', color: '#0277bd', nameColor: '#80d8ff',
+  desc: '远程智力型游走。残影静待引爆，电能漩涡拉扯敌人，施法后超负荷强化普攻，球状闪电穿梭战场。',
+  ai: { role: 'carry', aggr: 1.15, skills: [0, 2, 1, 0, 0, 3, 0, 2, 2, 2, 3, 1, 1, 1, 3], build: ['arcane', 'blink', 'bloodstone', 'scepter', 'scythe'],
+    combos: [{ id: 'storm_vortex_ball', steps: [{ slot: 1, at: 'target' }, { slot: 3, at: 'near' }], min: 1, radius: 6 }] },
+  stats: { primary: 'int', str: 19, strG: 1.8, agi: 22, agiG: 1.8, int: 24, intG: 3.2, dmg: 22, armor: 2, bat: 1.7, range: 9,
+    atkPoint: 0.5, backswing: 0.3, speed: 7.1, proj: 22, projColor: '#80d8ff', hpRegen: 1.0, manaRegen: 1.0, radius: 0.6, height: 3.2 },
+  portrait: { headY: 2.7 },
+  model: () => humanoid({ pants: '#01579b', boots: '#0d47a1', skin: '#b3e5fc', sleeve: '#0288d1', hip: 0.24, sh: 0.58, legH: 1.05, bodyH: 1.0, legW: 0.34,
+    body: [[0, 0.48, 0, 0.78, 1.0, 0.5, '#0288d1'], [0, 0.55, 0.26, 0.45, 0.35, 0.04, '#80d8ff'], [0, 0.08, 0, 0.88, 0.22, 0.55, '#01579b'],
+      [0, 1.4, 0, 0.7, 0.7, 0.7, '#b3e5fc'], [0, 1.75, -0.05, 0.85, 0.3, 0.85, '#0277bd'], [0, 2.0, 0, 0.28, 0.35, 0.28, '#40c4ff'],
+      [-0.16, 1.48, 0.38, 0.12, 0.08, 0.02, '#01579b'], [0.16, 1.48, 0.38, 0.12, 0.08, 0.02, '#01579b'],
+      [-0.55, 1.1, -0.15, 0.55, 1.1, 0.06, '#4fc3f7'], [0.55, 1.1, -0.15, 0.55, 1.1, 0.06, '#4fc3f7']],
+    bodyGlow: [[0, 0.7, 0.28, 0.35, 0.4, 0.04, '#e1f5fe'], [0, 1.9, 0.1, 0.2, 0.25, 0.2, '#80d8ff']],
+    armR: [[0, -0.4, 0, 0.32, 0.85, 0.36, '#0288d1'], [0, -0.85, 0, 0.34, 0.2, 0.38, '#b3e5fc']],
+    armL: [[0, -0.4, 0, 0.32, 0.85, 0.36, '#0288d1'], [0, -0.85, 0, 0.34, 0.2, 0.38, '#b3e5fc']] }),
+  abilities: [
+    { id: 'static_remnant', ai: { selfAoe: true, nuke: true }, shard: { desc: '残影伤害 +40，引爆半径 +0.5。', values: { dmg: [140, 190, 240, 290], radius: 3.5 } },
+      key: 'Q', name: '残影', icon: '影', color: '#29b6f6', target: 'none', castPoint: 0,
+      mana: [70, 80, 90, 100], cd: [3.5, 3.5, 3.5, 3.5], values: { dmg: [100, 150, 200, 250], radius: 3, arm: 1.0, life: 12, near: 2.4 },
+      text: L => `在当前位置留下残影。${L.arm} 秒后激活：敌人靠近 ${L.near} 码即引爆，对 ${L.radius} 码内造成 ${L.dmg} 点魔法伤害（最多存在 ${L.life} 秒）。`,
+      onCast(c) {
+        const h = c.caster, rem = { x: h.x, z: h.z, dead: false, armed: false };
+        rem.fx = stormRemnantFx(rem);
+        (h._remnants || (h._remnants = [])).push(rem);
+        emit('staticRemnant', { unit: h.id, place: true });
+        AB.burst(h.x, 1.2, h.z, 12, ['#40c4ff', '#ffffff'], 3, 0.35, 0.2, 1.5, 0);
+        AB.delay(c.v('arm'), () => { if (!rem.dead) rem.armed = true; });
+        const dmg = c.v('dmg'), radius = c.v('radius'), near = c.v('near');
+        effects.push({ update(dt) {
+          if (rem.dead || h.dead) { if (!rem.dead && rem.fx) rem.fx.end(); rem.dead = true; return true; }
+          rem.fx && rem.fx.update(dt);
+          if (rem.armed) {
+            for (const u of AB.enemiesIn(h, rem.x, rem.z, near)) if (!u.isBuilding) { stormDetonate(h, rem, dmg, radius); return true; }
+          }
+          return false;
+        } });
+        AB.delay(c.v('life'), () => { if (!rem.dead) stormDetonate(h, rem, dmg, radius); });
+      } },
+    { id: 'electric_vortex', ai: { disable: true }, key: 'W', name: '电能漩涡', icon: '涡', color: '#0277bd', target: 'unit', range: 5.5, castPoint: 0.3,
+      mana: [80, 100, 120, 140], cd: [21, 18, 15, 12], values: { pull: [180, 220, 260, 300], dur: [1.0, 1.3, 1.6, 1.9] },
+      text: L => `将一名敌人拉向自己，并禁锢 ${L.dur} 秒。`,
+      onCast(c, t) {
+        const h = c.caster, dur = c.v('dur');
+        AB.pull(t, h.x, h.z, Math.min(c.v('pull') / 40, dst(t, h) - 1.2));
+        AB.root(t, h, dur); AB.stun(t, h, Math.min(0.35, dur));
+        AB.tetherFx(t, h.x, h.z, '#40c4ff');
+        AB.burst(t.x, 1.3, t.z, 16, ['#40c4ff', '#ffffff'], 4, 0.4, 0.25, 2, 0);
+        emit('electricVortex', { unit: h.id, target: t.id });
+        let left = dur;
+        effects.push({ update(dt) {
+          left -= dt; if (left <= 0 || t.dead || h.dead) return true;
+          if (dst(t, h) > 2.0) AB.pull(t, h.x, h.z, 6 * dt);
+          if (Math.random() < 0.5) AB.tetherFx(t, h.x, h.z, '#80d8ff');
+          return false;
+        } });
+      } },
+    { id: 'overload', key: 'E', name: '超负荷', icon: '荷', color: '#4fc3f7', passive: true,
+      values: { dmg: [40, 60, 80, 100], radius: 3.5, slow: 0.8, dur: 0.6 }, fmt: { slow: v => Math.round(v * 100) + '%' },
+      text: L => `被动：每次施法后，下一次攻击额外造成 ${L.dmg} 点魔法伤害（半径 ${L.radius}），并减速 ${L.slow}，持续 ${L.dur} 秒。`,
+      onAbilityCast(c, ab) {
+        if (!ab || ab.def.id === 'overload') return;
+        const h = c.caster; h._overload = { dmg: c.v('dmg'), r: c.v('radius'), slow: c.v('slow'), dur: c.v('dur') };
+        AB.addModifier(h, STORM_OV, h, { dur: 12 });
+      },
+      onAttackLand(c, t) {
+        const h = c.caster, o = h._overload; if (!o || t.isBuilding) return;
+        h._overload = null; removeModById(h, 'storm_ov');
+        for (const u of AB.enemiesIn(h, t.x, t.z, o.r)) {
+          if (u.isBuilding) continue;
+          AB.damage(h, u, o.dmg, 'magic', 'overload');
+          AB.slow(u, h, o.dur, o.slow);
+        }
+        AB.burst(t.x, 1.3, t.z, 18, ['#80d8ff', '#ffffff', '#0277bd'], 5, 0.45, 0.25, 2, 0);
+        emit('overload', { unit: h.id, target: t.id });
+      } },
+    { id: 'ball_lightning', ai: { escape: 'blink', engage: true },
+      scepter: { desc: '球状闪电伤害 +40，每 100 码耗蓝 -4。', values: { dmg: [120, 160, 200], manaPer: 8 } },
+      key: 'R', name: '球状闪电', icon: '球', color: '#01579b', ult: true, target: 'point', range: 40, castPoint: 0.3, clampRange: true,
+      mana: 30, cd: [0, 0, 0], values: { speed: 28, dmg: [8, 12, 16], radius: 2.5, manaPer: 12, tree: true },
+      text: L => `终极技能：化作闪电飞向目标点，途中对 ${L.radius} 码敌人造成 ${L.dmg} 点魔法伤害（每 100 码）。每飞行 100 码额外消耗 ${L.manaPer} 点魔法；魔法耗尽时提前落地。`,
+      onCast(c, pt) {
+        const h = c.caster, dest = AB.clampPoint(h, pt, 40), sx = h.x, sz = h.z;
+        const dx = dest.x - sx, dz = dest.z - sz, len = Math.hypot(dx, dz) || 0.1, dirx = dx / len, dirz = dz / len;
+        const speed = c.v('speed'), radius = c.v('radius'), dmgPer = c.v('dmg'), manaPer = c.v('manaPer');
+        const hit = new Set(); let trav = 0, manaSpent = 0;
+        AB.addModifier(h, { id: 'storm_ball', name: '球状闪电', color: '#40c4ff', states: ['invulnerable', 'disarmed'] }, h, { dur: len / speed + 0.5 });
+        emit('ballLightning', { unit: h.id, len: +len.toFixed(1) });
+        AB.float(h, '球状闪电！', '#80d8ff', 18, 1.0);
+        effects.push({ update(dt) {
+          if (h.dead) { removeModById(h, 'storm_ball'); return true; }
+          const step = Math.min(speed * dt, len - trav); trav += step;
+          const nx = sx + dirx * trav, nz = sz + dirz * trav;
+          const need = (step / 100) * manaPer;
+          if (need > 0) {
+            if (h.mana < need) { removeModById(h, 'storm_ball'); AB.teleport(h, { x: nx, z: nz }, { colors: ['#40c4ff', '#ffffff'], stop: false }); return true; }
+            h.mana -= need; manaSpent += need;
+          }
+          AB.teleport(h, { x: nx, z: nz }, { noFx: true, stop: false });
+          for (const u of AB.enemiesIn(h, h.x, h.z, radius)) {
+            if (u.isBuilding || hit.has(u)) continue; hit.add(u);
+            AB.damage(h, u, dmgPer * (len / 100), 'magic', 'ball_lightning');
+          }
+          if (Math.random() < 0.7) spawnP(h.x + rnd(-0.4, 0.4), rnd(0.5, 2.2), h.z + rnd(-0.4, 0.4), 0, 1.2, 0, 0.35, 0.2, '#e1f5fe');
+          if (trav >= len - 0.01) {
+            removeModById(h, 'storm_ball');
+            AB.burst(h.x, 1.5, h.z, 24, ['#40c4ff', '#ffffff'], 6, 0.5, 0.3, 2, 0);
+            emit('ballLightningEnd', { unit: h.id, n: hit.size, mana: Math.round(manaSpent) });
+            return true;
+          }
+          return false;
+        } });
+      } },
+  ],
+});
+
 // ===== heroes/sven.js =====
 // heroes/sven.js — 斯温 Sven (melee strength). Storm Hammer AoE stun, Great Cleave, Warcry, God's Strength.
 const SVEN_WARCRY = { id: 'sven_warcry', name: '战吼', color: '#1e88e5',
@@ -9549,6 +9917,96 @@ registerHero({
         }
         for (let i = 1; i <= 3; i++) AB.ringP(h.x, h.z, 0.8, 40, ['#01579b', '#4fc3f7', '#e1f5fe'], 0.2 * i, 0.4, 0.4, R / (0.2 * i));
         AB.float(h, '毁灭！', '#4fc3f7', 20, 1.2); emit('ravage', { unit: h.id }); } },
+  ],
+});
+
+// ===== heroes/tinker.js =====
+// heroes/tinker.js — 修补匠 Tinker (ranged intelligence). Laser (blind+dmg), Heat-Seeking Missile,
+// Defense Matrix (magic absorb on ally), Rearm (channel: reset ability/item CDs).
+const TINK_BLIND = { id: 'tink_blind', tag: '致盲', color: '#ffeb3b', debuff: true };
+const TINK_MATRIX = { id: 'tink_matrix', name: '防御矩阵', color: '#26c6da', absorb: 'magic',
+  fx(u) { if (Math.random() < 0.35) { const a = Math.random() * 6.28; spawnP(u.x + Math.cos(a) * 1.1, rnd(0.4, 2.2), u.z + Math.sin(a) * 1.1, 0, 0.6, 0, 0.4, 0.18, '#80deea'); } } };
+registerHero({
+  id: 'tinker', order: 41, name: '修补匠', title: '波希', type: '远程 · 智力', color: '#00838f', nameColor: '#4dd0e1',
+  desc: '远程智力型爆发。激光致盲，热导飞弹追踪英雄，防御矩阵吸收魔法，再装填重置冷却持续轰炸。',
+  ai: { role: 'carry', aggr: 1.1, skills: [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3], build: ['arcane', 'blink', 'dagon', 'bloodstone', 'scepter'],
+    combos: [{ id: 'tinker_laser_missile', steps: [{ slot: 0 }, { slot: 1 }], min: 1, radius: 10 }] },
+  stats: { primary: 'int', str: 17, strG: 2.2, agi: 13, agiG: 1.2, int: 28, intG: 3.5, dmg: 22, armor: 2, bat: 1.7, range: 11,
+    atkPoint: 0.35, backswing: 0.65, speed: 6.7, proj: 22, projColor: '#4dd0e1', hpRegen: 0.75, manaRegen: 1.2, radius: 0.58, height: 3.0 },
+  portrait: { headY: 2.5 },
+  model: () => humanoid({ pants: '#37474f', boots: '#263238', skin: '#ffe0b2', sleeve: '#00838f', hip: 0.22, sh: 0.55, legH: 0.95, bodyH: 0.95, legW: 0.32,
+    body: [[0, 0.45, 0, 0.85, 0.95, 0.55, '#00838f'], [0, 0.5, 0.28, 0.5, 0.4, 0.04, '#4dd0e1'], [0, 0.08, 0, 0.95, 0.22, 0.6, '#006064'],
+      [0, 1.35, 0, 0.7, 0.7, 0.7, '#ffe0b2'], [0, 1.7, -0.05, 0.95, 0.45, 0.95, '#455a64'], [0, 2.05, 0.1, 0.55, 0.25, 0.7, '#90a4ae'],
+      [-0.35, 1.85, 0.15, 0.35, 0.35, 0.35, '#ffeb3b'], [0.35, 1.85, 0.15, 0.35, 0.35, 0.35, '#ffeb3b'],
+      [-0.16, 1.42, 0.38, 0.12, 0.08, 0.02, '#263238'], [0.16, 1.42, 0.38, 0.12, 0.08, 0.02, '#263238']],
+    bodyGlow: [[-0.35, 1.85, 0.35, 0.2, 0.2, 0.05, '#fff59d'], [0.35, 1.85, 0.35, 0.2, 0.2, 0.05, '#fff59d'], [0, 0.7, 0.3, 0.4, 0.35, 0.04, '#80deea']],
+    armR: [[0, -0.4, 0, 0.32, 0.85, 0.34, '#00838f'], [0, -0.85, 0, 0.5, 0.35, 0.5, '#455a64'], [0, -0.95, 0.35, 0.25, 0.25, 0.55, '#4dd0e1']],
+    armL: [[0, -0.4, 0, 0.32, 0.85, 0.34, '#00838f'], [0, -0.85, 0, 0.34, 0.2, 0.36, '#ffe0b2']] }),
+  abilities: [
+    { id: 'laser', ai: { nuke: true, disable: true }, shard: { desc: '激光伤害 +40，致盲 +0.5 秒。', values: { dmg: [120, 200, 280, 360], dur: [3.5, 4, 4.5, 5] } },
+      key: 'Q', name: '激光', icon: '光', color: '#ffeb3b', target: 'unit', range: 11, castPoint: 0.4,
+      mana: [95, 110, 125, 140], cd: [20, 18, 16, 14], values: { dmg: [80, 160, 240, 320], miss: 1.0, dur: [3, 3.5, 4, 4.5] },
+      fmt: { miss: v => Math.round(v * 100) + '%' },
+      text: L => `发射激光，造成 ${L.dmg} 点纯粹伤害，并使目标攻击 ${L.miss} 落空，持续 ${L.dur} 秒。`,
+      onCast(c, t) {
+        const h = c.caster;
+        AB.beam(h.x, h.height * 0.7, h.z, t.x, t.height * 0.5, t.z, '#ffeb3b', 0.35, 0.4);
+        AB.beam(h.x, h.height * 0.7, h.z, t.x, t.height * 0.5, t.z, '#ffffff', 0.12, 0.35);
+        AB.damage(h, t, c.v('dmg'), 'pure', 'laser', { big: true });
+        AB.addModifier(t, TINK_BLIND, h, { dur: c.v('dur'), props: { miss: c.v('miss') } });
+        AB.burst(t.x, 1.4, t.z, 18, ['#ffeb3b', '#ffffff', '#ffc107'], 5, 0.45, 0.25, 2, 0);
+        emit('laser', { unit: h.id, target: t.id });
+      } },
+    { id: 'heat_missile', ai: { nuke: true, aoe: 2 }, key: 'W', name: '热导飞弹', icon: '弹', color: '#ef5350', target: 'none', castPoint: 0,
+      mana: [80, 100, 120, 140], cd: [18, 16, 14, 12], values: { dmg: [125, 200, 275, 350], count: [2, 2, 2, 2], range: 40 },
+      text: L => `发射 ${L.count} 枚热导飞弹，各自追踪 ${L.range} 码内最近的敌方英雄，造成 ${L.dmg} 点魔法伤害。`,
+      onCast(c) {
+        const h = c.caster, n = c.v('count'), dmg = c.v('dmg'), R = c.v('range');
+        const foes = G.heroes.filter(u => !u.dead && u.team !== h.team && !u.isIllusion && dst(u, h) <= R && canSee(h.team, u))
+          .sort((a, b) => dst(a, h) - dst(b, h));
+        const targets = [];
+        for (let i = 0; i < n; i++) targets.push(foes[i % Math.max(1, foes.length)]);
+        if (!foes.length) { AB.float(h, '无目标', '#ef9a9a', 14, 0.8); AB.ringP(h.x, h.z, 1, 16, ['#ef5350'], 0.3, 0.2, 0.3); emit('heatMissile', { unit: h.id, n: 0 }); return; }
+        targets.slice(0, n).forEach((t, i) => {
+          AB.delay(i * 0.12, () => {
+            if (t.dead) return;
+            AB.projectile({ src: h, target: t, speed: 18, color: '#ef5350', size: 0.55, trail: '#ffcdd2', onHit(u) {
+              AB.damage(h, u, dmg, 'magic', 'heat_missile');
+              AB.burst(u.x, 1.3, u.z, 14, ['#ef5350', '#ffffff'], 4, 0.4, 0.25, 2, 0);
+            } });
+          });
+        });
+        emit('heatMissile', { unit: h.id, n: Math.min(n, foes.length) });
+      } },
+    { id: 'defense_matrix', ai: { allyBuff: true }, key: 'E', name: '防御矩阵', icon: '阵', color: '#26c6da', target: 'unit', targetTeam: 'ally', range: 12, castPoint: 0.2,
+      mana: [80, 95, 110, 125], cd: [16, 14, 12, 10], values: { absorb: [100, 180, 260, 340], status: 0.3, dur: 12 },
+      fmt: { status: v => Math.round(v * 100) + '%' },
+      text: L => `为一名友军施加防御矩阵 ${L.dur} 秒：吸收 ${L.absorb} 点魔法伤害，并降低 ${L.status} 受到的负面状态时间。`,
+      onCast(c, t) {
+        removeModById(t, 'tink_matrix');
+        AB.addModifier(t, TINK_MATRIX, c.caster, { dur: c.v('dur'), data: { left: c.v('absorb'), statusRed: c.v('status') } });
+        AB.burst(t.x, 1.5, t.z, 20, ['#4dd0e1', '#ffffff', '#00acc1'], 5, 0.5, 0.3, 2, 0);
+        AB.ringP(t.x, t.z, 0.5, 18, ['#80deea', '#e0f7fa'], 0.4, 0.25, 0.4, 6);
+        emit('defenseMatrix', { unit: c.caster.id, target: t.id });
+      } },
+    { id: 'rearm', ai: { skip: true },
+      scepter: { desc: '再装填引导时间缩短至 1.5/0.75/0 秒。', channel: [1.5, 0.75, 0.01] },
+      key: 'R', name: '再装填', icon: '装', color: '#006064', ult: true, target: 'none', castPoint: 0,
+      channel: [3.0, 1.5, 0.75], mana: [100, 150, 200], cd: [0, 0, 0],
+      text: L => `终极技能（持续施法）：重置修补匠所有技能与物品的冷却时间。引导时间随等级缩短。`,
+      onChannelEnd(c, t, interrupted) {
+        if (interrupted) return;
+        const h = c.caster;
+        for (const ab of h.abilities) if (ab.def.id !== 'rearm') { ab.cd = 0; ab.cdMax = 0; }
+        for (const it of h.items) if (it) {
+          it.cd = 0;
+          if (it.def.heroCd && h.icd) h.icd[it.id] = 0;
+        }
+        AB.burst(h.x, 1.5, h.z, 28, ['#4dd0e1', '#ffffff', '#00838f'], 7, 0.55, 0.3, 3, 0);
+        AB.ringP(h.x, h.z, 0.5, 24, ['#26c6da', '#e0f7fa'], 0.45, 0.3, 0.5, 8);
+        AB.float(h, '再装填！', '#4dd0e1', 20, 1.1);
+        emit('rearm', { unit: h.id });
+      } },
   ],
 });
 
