@@ -41,7 +41,8 @@ function refreshHero(h) {
   h.hpRegen = s.hpRegen + h.str * 0.1 + (P.hpRegen || 0); h.manaRegen = s.manaRegen + h.int * 0.05 + (P.manaRegen || 0);
   h.dmgTakenPct = P.dmgTakenPct || 0; if (!h.form) h.range = s.range + (P.range || 0); h.block = P.block || 0;   // form (True Form) owns melee range
   h.magicRes = 1 - 0.75 * (1 - (P.magicRes || 0)); h.missChance = P.miss || 0; h.evasion = Math.min(0.9, P.evasion || 0); h.blurR = P.blur || 0;   // base 25% magic resistance
-  h.trueStrike = !!P.trueStrike; applyScepter(h); if (typeof applyShard === 'function') applyShard(h);   // B7 scepter + B12 shard
+  h.trueStrike = !!P.trueStrike; h.cdReduc = Math.min(0.4, P.cdReduc || 0); h.spellLifesteal = P.spellLifesteal || 0;   // Octarine etc.
+  applyScepter(h); if (typeof applyShard === 'function') applyShard(h);   // B7 scepter + B12 shard
 }
 const skillPoints = h => h.level - h.abilities.reduce((a, s) => a + s.lvl, 0);
 const maxAbilityLevel = d => d.ult ? 3 : 4;

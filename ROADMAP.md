@@ -31,10 +31,11 @@ Heroes come in batches of 3–4. Each batch is grouped by the engine features it
 | **B17: classic carries / initiators ✅ done** | prefer existing AB (delayedArea, knockup, cleave, invis, illusion, recast, absorb barrier); remnant place+activate via recast window | 昆卡 Kunkka (洪流 / 潮汐使者 / X标记 / 幽灵船); 幽鬼 Spectre (幽鬼之刃 / 荒芜 / 折射 / 缠绕); 编织者 Weaver (虫群 / 缩地 / 连击 / 时光倒流); 灰烬之灵 Ember Spirit (袖中一剑 / 烈火罩 / 火之余烬 / 火炸弹) — **37 heroes**; tests `b17.js` + screenshots 66–69 |
 | **B18: classic int casters ✅ done** | prefer existing AB (chain, pull, groundArea, channel silence, summon wards, absorb barrier, CD reset) | 风暴之灵 Storm Spirit (残影 / 电能漩涡 / 超负荷 / 球状闪电); 干扰者 Disruptor (雷霆一击 / 时光窥视 / 动能力场 / 静态风暴); 暗影萨满 Shadow Shaman (以太冲击 / 妖术 / 枷锁 / 群蛇守卫); 修补匠 Tinker (激光 / 热导飞弹 / 防御矩阵 / 再装填) — **41 heroes**; tests `b18.js` + screenshots 70–73 |
 | B11 follow-ups | **internet play needs a signalling server + STUN/TURN** (codes currently only work on one LAN); host migration; spectator mode; replays from the order log; faster rejoin (state checkpoints) | planned |
+| **Items polish ✅ batch 1** | Luxury late-game items (no new heroes): 刷新球 Refresher Orb, 玲珑心 Octarine Core (CD reduction + spell lifesteal hooks), 紫怨 Orchid, 血棘 Bloodthorn, 守护仙灵 Guardian Greaves; shop/recipes/tooltips; bot role builds + actives | done |
 | Later polish | Scepter/Shard ally gifting (or courier-deliverable); Roshan refresher shard / Aegis denies; more item-aware bot recipes | planned |
 
 ## Suggested next steps (older notes)
-- **Items (B7/B12 follow-ups):** giving a Scepter/Shard to an ally; more Shard upgrades beyond Axe/Lina; remaining luxury items (Refresher, Octarine, …).
+- **Items (B7/B12 follow-ups):** giving a Scepter/Shard to an ally; luxury items Refresher/Octarine/Orchid/Bloodthorn/Greaves done in Items polish batch 1.
 - **Sound (B9 follow-ups):** voice lines / recorded announcer, per-hero attack timbres, reverb in the Roshan pit, music.
 - **Teamwork (B10/B12 follow-ups):** item-aware combos (BKB → Black Hole, Blink → Eul's), dynamic ward spots; smoke/buyback/glyph/lane-farmer already in B12.
 - **Jungle (B8 follow-ups):** Aegis denies / Roshan refresher shard, neutral item drops, bots deliberately stacking/pulling camps and sniping enemy couriers, courier upgrade (speed burst), shared courier controls for allies.

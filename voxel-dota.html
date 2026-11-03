@@ -343,7 +343,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = '9d9e572d47';
+const BUILD_ID = 'a08f708fab';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -1719,7 +1719,8 @@ function refreshHero(h) {
   h.hpRegen = s.hpRegen + h.str * 0.1 + (P.hpRegen || 0); h.manaRegen = s.manaRegen + h.int * 0.05 + (P.manaRegen || 0);
   h.dmgTakenPct = P.dmgTakenPct || 0; if (!h.form) h.range = s.range + (P.range || 0); h.block = P.block || 0;   // form (True Form) owns melee range
   h.magicRes = 1 - 0.75 * (1 - (P.magicRes || 0)); h.missChance = P.miss || 0; h.evasion = Math.min(0.9, P.evasion || 0); h.blurR = P.blur || 0;   // base 25% magic resistance
-  h.trueStrike = !!P.trueStrike; applyScepter(h); if (typeof applyShard === 'function') applyShard(h);   // B7 scepter + B12 shard
+  h.trueStrike = !!P.trueStrike; h.cdReduc = Math.min(0.4, P.cdReduc || 0); h.spellLifesteal = P.spellLifesteal || 0;   // Octarine etc.
+  applyScepter(h); if (typeof applyShard === 'function') applyShard(h);   // B7 scepter + B12 shard
 }
 const skillPoints = h => h.level - h.abilities.reduce((a, s) => a + s.lvl, 0);
 const maxAbilityLevel = d => d.ult ? 3 : 4;
@@ -1880,15 +1881,17 @@ function useItem(h, slot, target) {
   if (!D.keepInvis) breakInvis(h, 'cast');
   // B12 Linken's: unit-target items (Dagon, Scythe, …) are blocked like spells
   if (A.target === 'unit' && target && target.id && typeof trySpellBlock === 'function' && trySpellBlock(target, h, D.id)) {
-    if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + (A.cd || 0);
-    if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = A.cd || 0; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = A.cd || 0;
+    const cdB = typeof applyCdReduc === 'function' ? applyCdReduc(h, A.cd || 0) : (A.cd || 0);
+    if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + cdB;
+    if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cdB; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = cdB;
     return null;
   }
   if (A.onUse({ caster: h, item: it, def: D }, target) === false) return '无法使用';
   if (A.mana) h.mana -= A.mana;
   emit('itemUse', { unit: h.id, item: D.id, slot, target: target && target.id ? target.id : 0 });
-  if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + (A.cd || 0);
-  if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = A.cd || 0; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = A.cd || 0;
+  const cd = typeof applyCdReduc === 'function' ? applyCdReduc(h, A.cd || 0) : (A.cd || 0);
+  if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + cd;
+  if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cd; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = cd;
   return null;
 }
 // B12: move one inventory item to another unit that has an items array (Spirit Bear). Same team / ownership only.
@@ -2782,6 +2785,7 @@ function abilityCtx(h, ab) { return { caster: h, ab, def: ab.def, lvl: ab.lvl, v
 function fireHeroHook(h, hook, ...args) { if (!h.abilities) return; for (const ab of h.abilities) if (ab.lvl > 0 && ab.def[hook] && !(h.isIllusion && ab.def.noIllusion)) ab.def[hook](abilityCtx(h, ab), ...args); }
 // item passives: def.onAttackLand(ctx{caster, item, def}, target, dealt) — once per item id (unique)
 function fireItemHook(h, hook, ...args) { if (h.isIllusion) return; const seen = {}; for (const it of h.items) if (it && it.def[hook] && !seen[it.id]) { seen[it.id] = 1; it.def[hook]({ caster: h, item: it, def: it.def }, ...args); } }
+function applyCdReduc(h, cd) { return Math.max(0, (cd || 0) * (1 - (h.cdReduc || 0))); }
 function canCast(h, ab) {
   if (h.dead) return '英雄已阵亡';
   if (h.isIllusion) return '幻象无法施放技能';
@@ -2853,7 +2857,7 @@ function executeCast(h, ab, target) {
   if (isRecast(h, ab)) { emit('cast', { unit: h.id, ability: ab.def.id + ':recast', slot: h.abilities.indexOf(ab), target: 0 }); ab.def.onRecast(abilityCtx(h, ab)); return true; }
   if (ab.def.toggle) { emit('cast', { unit: h.id, ability: ab.def.id, slot: h.abilities.indexOf(ab), target: 0 }); toggleAbility(h, ab); afterCast(h, ab); return true; }   // abilities/toggle.js
   h.mana -= lvVal(ab.def, 'mana', ab.lvl) || 0;
-  ab.cd = ab.cdMax = lvVal(ab.def, 'cd', ab.lvl) || 0;
+  ab.cd = ab.cdMax = applyCdReduc(h, lvVal(ab.def, 'cd', ab.lvl) || 0);
   emit('cast', { unit: h.id, ability: ab.def.id, slot: h.abilities.indexOf(ab), target: target && target.id ? target.id : 0, x: target ? target.x : null, z: target ? target.z : null });
   if (!ab.def.keepInvis) breakInvis(h, 'cast', target);
   // B12 Linken's Sphere: block one unit-target spell (no bounce). Lotus / Counterspell reflect still bounce.
@@ -3664,9 +3668,10 @@ function botItemActives(h, b, s, mode, target) {
   const team = [h].concat(s.allies), near = (u, r) => s.foes.filter(f => dst(f, u) < r);
   let ci = itemReady(h, id => id === 'cheese');   // B8 Roshan Cheese: emergency heal
   if (ci >= 0 && s.hpPct < 0.3 && (s.foes.length || recentlyHitByHero(h, 3) || inPit(h.x, h.z))) return botItemUse(h, b, ci, null);
-  let i = itemReady(h, id => id === 'mekansm');
+  let i = itemReady(h, id => id === 'mekansm' || id === 'greaves');
   if (i >= 0) { const hurt = team.filter(a => dst(a, h) < 11 && a.maxHp - a.hp > 250);
-    if (hurt.length >= 2 || hurt.some(a => a.hp < a.maxHp * 0.4)) return botItemUse(h, b, i, null); }
+    const greavesMana = h.items[i].id === 'greaves' && team.filter(a => dst(a, h) < 11 && a.maxMana && a.mana < a.maxMana * 0.35).length >= 2;
+    if (hurt.length >= 2 || hurt.some(a => a.hp < a.maxHp * 0.4) || greavesMana) return botItemUse(h, b, i, null); }
   i = itemReady(h, id => id === 'pipe');
   if (i >= 0 && (mode === 'fight' || recentlyHitByHero(h, 2)) && near(h, 13).length >= 2 && team.filter(a => dst(a, h) < 11).length >= 2) return botItemUse(h, b, i, null);
   i = itemReady(h, id => id === 'glimmer');
@@ -3707,6 +3712,18 @@ function botItemActives(h, b, s, mode, target) {
   }
   i = itemReady(h, id => id === 'bloodstone');
   if (i >= 0 && s.hpPct < 0.28 && (s.foes.length || recentlyHitByHero(h, 3)) && bsCharges(h.items[i]) >= 4) return botItemUse(h, b, i, null);
+  i = itemReady(h, id => id === 'orchid' || id === 'bloodthorn');
+  if (i >= 0 && (mode === 'fight' || s.foes.some(f => f.channel))) {
+    const t = s.foes.find(f => f.channel && !hasState(f, 'magicImmune') && !foeHasSpellBlock(f) && !f.silenced)
+      || (target && target.isHero && !hasState(target, 'magicImmune') && !foeHasSpellBlock(target) && !target.silenced && disabledFor(target) < 0.5 ? target : null);
+    if (t && botItemUse(h, b, i, t)) return true;
+  }
+  i = itemReady(h, id => id === 'refresher');
+  if (i >= 0 && mode === 'fight' && near(h, 14).length) {
+    const ult = h.abilities[3];
+    const longCd = h.abilities.filter(a => a.lvl > 0 && a.cd > 8).length;
+    if ((ult && ult.lvl > 0 && ult.cd > 12) || longCd >= 2) return botItemUse(h, b, i, null);
+  }
   return false;
 }
 
@@ -4311,9 +4328,9 @@ function setPlayerBot(on = true, diff = 1, lane = 'mid') { const P = G.player; i
 const BOT_BUILDS = {   // B7: supports Mek / Force / Glimmer / Pipe / Eul's; carries Daedalus / Butterfly / MKB; tanks Heart / Scepter
   carry: ['phase', 'bfury', 'bkb', 'desolator', 'daedalus', 'satanic'],
   tank: ['phase', 'vanguard', 'blink', 'heart', 'linken', 'scepter'],
-  support: ['arcane', 'mekansm', 'force', 'glimmer', 'lotus', 'pipe'],
+  support: ['arcane', 'mekansm', 'force', 'glimmer', 'lotus', 'greaves'],
 };
-const BOT_EXTRA = { carry: ['butterfly', 'mkb', 'assault'], tank: ['assault', 'bkb', 'pipe'], support: ['euls', 'bloodstone', 'scepter', 'scythe'] };
+const BOT_EXTRA = { carry: ['butterfly', 'mkb', 'assault'], tank: ['assault', 'bkb', 'pipe'], support: ['euls', 'orchid', 'scythe', 'refresher', 'octarine', 'scepter'] };
 const BOT_UTIL = { tp: 1, salve: 1, dust: 1, ward_obs: 1, ward_sentry: 1, smoke: 1 };
 const botRole = h => (h.def.ai && h.def.ai.role) || (h.def.stats.primary === 'int' ? 'support' : h.def.stats.primary === 'str' ? 'tank' : 'carry');
 const botBuild = h => ((h.def.ai && (h.def.ai.build || h.def.ai.items)) || BOT_BUILDS[botRole(h)]).concat(BOT_EXTRA[botRole(h)]);
@@ -6345,6 +6362,8 @@ Object.assign(GameAPI, {
   // B13 polish: shard coverage helpers, item-aware bot prep, courier burst/upgrade, dynamic wards
   courierUpgrade, courierOrder, spawnCourier, COURIER_SPEED, COURIER_BURST_MULT, COURIER_BURST_DUR, COURIER_UPGRADE_COST, COURIER_UPGRADE_MULT,
   dynamicWardSpots, wardSpots, foeHasSpellBlock, needsBkbChannel, botPopBkb,
+  // B19 luxury items: bot purchase builds
+  BOT_BUILDS, BOT_EXTRA, botBuild, botShop, botHas, botRole,
 });
 
 // ===== net/rng.js =====
@@ -9929,7 +9948,7 @@ const TINK_MATRIX = { id: 'tink_matrix', name: '防御矩阵', color: '#26c6da',
 registerHero({
   id: 'tinker', order: 41, name: '修补匠', title: '波希', type: '远程 · 智力', color: '#00838f', nameColor: '#4dd0e1',
   desc: '远程智力型爆发。激光致盲，热导飞弹追踪英雄，防御矩阵吸收魔法，再装填重置冷却持续轰炸。',
-  ai: { role: 'carry', aggr: 1.1, skills: [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3], build: ['arcane', 'blink', 'dagon', 'bloodstone', 'scepter'],
+  ai: { role: 'carry', aggr: 1.1, skills: [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3], build: ['arcane', 'blink', 'dagon', 'bloodstone', 'octarine', 'refresher'],
     combos: [{ id: 'tinker_laser_missile', steps: [{ slot: 0 }, { slot: 1 }], min: 1, radius: 10 }] },
   stats: { primary: 'int', str: 17, strG: 2.2, agi: 13, agiG: 1.2, int: 28, intG: 3.5, dmg: 22, armor: 2, bat: 1.7, range: 11,
     atkPoint: 0.35, backswing: 0.65, speed: 6.7, proj: 22, projColor: '#4dd0e1', hpRegen: 0.75, manaRegen: 1.2, radius: 0.58, height: 3.0 },
@@ -10536,6 +10555,33 @@ registerItem({ id: 'bloodstone', order: 56, name: '血精石', en: 'Bloodstone',
     emit('bloodstone', { unit: c.caster.id, charges: n, heal });
   } } });
 
+// ===== items/bloodthorn.js =====
+// items/bloodthorn.js — 血棘 Bloodthorn: Orchid upgrade. Stronger Soul Burn + attacks vs the silenced target always crit.
+const BLOODTHORN_BURN = { id: 'bloodthorn', name: '血棘沉默', color: '#c62828', debuff: true, states: ['silenced'],
+  props: { dmgTakenPct: 30 },
+  onApply(u, m) { cancelCasting(u); interruptChannel(u, 'silence'); m.data.taken = 0; },
+  onRemove(u, m) {
+    const pop = (m.data.taken || 0) * 0.3;
+    if (pop > 0 && m.src && !u.dead) {
+      dealDamage(m.src, u, pop, 'magic', { ability: 'bloodthorn' });
+      AB.burst(u.x, 1.5, u.z, 20, ['#ef5350', '#c62828', '#ffffff'], 5, 0.5, 0.25, 2.5, 0);
+      AB.float(u, Math.round(pop), '#ef5350', 17, 1);
+    }
+  },
+  fx(u) { if (Math.random() < 0.4) spawnP(u.x + rnd(-0.55, 0.55), rnd(0.7, 2.5), u.z + rnd(-0.55, 0.55), 0, 1, 0, 0.45, 0.16, '#ef5350'); } };
+registerItem({ id: 'bloodthorn', order: 73, name: '血棘', en: 'Bloodthorn', icon: '棘', color: '#b71c1c', cost: 6800,
+  parts: ['orchid'], unique: true, props: { int: 25, as: 40, dmg: 30, manaRegen: 2.5 },
+  desc: '紫怨 + 3325。+25 智力，+40 攻击速度，+30 攻击力，+2.5 魔法恢复。主动·灵魂燃烧：沉默并增伤 5 秒（同紫怨），结束时结算 30% 所受伤害。被动：攻击处于血棘沉默中的目标必定暴击（175%）。消耗 125 魔法，冷却 15 秒。',
+  modifyAttack(c, t, info) {
+    if (t && getMod(t, 'bloodthorn')) applyCrit(info, 1.75);
+  },
+  active: { target: 'unit', range: 12, cd: 15, mana: 125, onUse(c, t) {
+    removeModById(t, 'orchid');
+    AB.addModifier(t, BLOODTHORN_BURN, c.caster, { dur: 5 });
+    AB.burst(t.x, 1.5, t.z, 22, ['#ef5350', '#ffcdd2', '#ffffff'], 6, 0.55, 0.28, 2.5, 0);
+    emit('bloodthorn', { unit: c.caster.id, target: t.id });
+  } } });
+
 // ===== items/boots.js =====
 // items/boots.js — 速度之靴: passive move speed (unique: multiple boots don't stack).
 registerItem({ id: 'boots', order: 1, name: '速度之靴', icon: '靴', color: '#8d6e63', cost: 500, unique: true, props: { ms: 1.5 },
@@ -10715,6 +10761,28 @@ registerItem({ id: 'glimmer', order: 44, name: '微光披风', en: 'Glimmer Cape
     emit('glimmer', { unit: c.caster.id, target: t.id });
   } } });
 
+// ===== items/greaves.js =====
+// items/greaves.js — 守护仙灵 Guardian Greaves: Mekansm + Arcane Boots upgrade. AoE heal + mana + self purge; boots uniqueGroup.
+const GREAVES_ARMOR = { id: 'greaves_armor', name: '守护仙灵', color: '#aed581', props: { armor: 3 } };
+const GREAVES_R = 12;
+registerItem({ id: 'greaves', order: 74, name: '守护仙灵', en: 'Guardian Greaves', icon: '灵', color: '#558b2f', cost: 4950,
+  parts: ['mekansm', 'arcane'], unique: true, uniqueGroup: 'boots',
+  props: { ms: 1.5, int: 8, hpRegen: 3, armor: 4, str: 2, agi: 2 },
+  desc: `梅肯斯姆 + 法力靴 + 1700。+1.5 移动速度，+8 智力，+3 生命恢复，+4 护甲，+2 力量/敏捷。主动·恢复：为 ${GREAVES_R} 码内友军恢复 300 生命与 160 魔法，并获得 +3 护甲 12 秒；对自己额外驱散负面状态。消耗 0 魔法，冷却 40 秒。`,
+  active: { target: 'none', cd: 40, onUse(c) {
+    const h = c.caster; let n = 0;
+    purgeDebuffs(h);
+    for (const u of units) if (!u.dead && u.team === h.team && !u.isBuilding && !u.isWard && dst(u, h) < GREAVES_R) {
+      const before = u.hp; u.hp = Math.min(u.maxHp, u.hp + 300);
+      if (u.maxMana) u.mana = Math.min(u.maxMana, (u.mana || 0) + 160);
+      AB.addModifier(u, GREAVES_ARMOR, h, { dur: 12 }); n++;
+      if (u.hp > before) AB.float(u, '+' + Math.round(u.hp - before), '#aed581', 14, 1);
+      AB.burst(u.x, 1.5, u.z, 10, ['#c5e1a5', '#81c784', '#ffffff'], 3, 0.55, 0.22, 3, 0);
+    }
+    AB.ringP(h.x, h.z, 0.8, 42, ['#aed581', '#dcedc8', '#ffffff'], 0.55, 0.4, 0.85, (GREAVES_R - 0.8) / 0.5);
+    emit('greaves', { unit: h.id, n });
+  } } });
+
 // ===== items/heart.js =====
 // items/heart.js — 恐鳌之心 Heart of Tarrasque: big strength / HP and a passive regeneration of 1.4% max HP per second, paused
 // for 4 s after taking damage from an enemy hero (h.dmgBy).
@@ -10790,6 +10858,51 @@ registerItem({ id: 'mkb', order: 50, name: '金箍棒', en: 'Monkey King Bar', i
   desc: '大剑 + 加速手套 ×2 + 2725。+40 攻击力，+45 攻击速度。被动·克敌先机：攻击无法被闪避（无视闪避与致盲）；40% 几率附加 70 点魔法伤害。',
   onAttackLand(c, t) { if (!t.isBuilding && !t.dead && Math.random() < 0.4) { dealDamage(c.caster, t, 70, 'magic', { ability: 'mkb' }); AB.burst(t.x, 1.2, t.z, 6, ['#ffd54f', '#fff8e1'], 3, 0.3, 0.2, 1, 0); } } });
 
+// ===== items/octarine.js =====
+// items/octarine.js — 玲珑心 Octarine Core: +HP/mana, 25% cooldown reduction (cast.js / inventory.js), 25% spell lifesteal on magic/pure ability damage.
+Events.on('damage', e => {
+  if (!e.ability || e.dtype === 'phys' || e.amount <= 0) return;
+  const src = unitById(e.src); if (!src || !src.isHero || src.isIllusion || !(src.spellLifesteal > 0)) return;
+  const tgt = unitById(e.tgt); if (!tgt || tgt.isBuilding || tgt.isWard || tgt.team === src.team) return;
+  const heal = e.amount * src.spellLifesteal;
+  if (heal <= 0) return;
+  src.hp = Math.min(src.maxHp, src.hp + heal);
+  if (heal > 10) AB.float(src, '+' + Math.round(heal), '#ce93d8', 13, 0.75);
+});
+registerItem({ id: 'octarine', order: 71, name: '玲珑心', en: 'Octarine Core', icon: '玲', color: '#8e24aa', cost: 5900,
+  parts: ['point_booster', 'vitality', 'ultimate_orb'], unique: true,
+  props: { hp: 425, mana: 425, str: 10, agi: 10, int: 10, cdReduc: 0.25, spellLifesteal: 0.25 },
+  desc: '精气之球 + 活力之球 + 极限法球 + 650。+425 生命值，+425 魔法值，+10 全属性。被动·冷却缩减：技能与物品冷却时间减少 25%。被动·法术吸血：造成的魔法/纯粹技能伤害回复 25% 生命。' });
+
+// ===== items/orchid.js =====
+// items/orchid.js — 紫怨 Orchid Malevolence: silence + Soul Burn (amp + end pop = 30% of damage taken while silenced).
+const ORCHID_BURN = { id: 'orchid', name: '灵魂燃烧', color: '#ab47bc', debuff: true, states: ['silenced'],
+  props: { dmgTakenPct: 30 },
+  onApply(u, m) { cancelCasting(u); interruptChannel(u, 'silence'); m.data.taken = 0; },
+  onRemove(u, m) {
+    const pop = (m.data.taken || 0) * 0.3;
+    if (pop > 0 && m.src && !u.dead) {
+      dealDamage(m.src, u, pop, 'magic', { ability: 'orchid' });
+      AB.burst(u.x, 1.4, u.z, 16, ['#ce93d8', '#ab47bc', '#ffffff'], 4, 0.45, 0.22, 2, 0);
+      AB.float(u, Math.round(pop), '#ce93d8', 16, 1);
+    }
+  },
+  fx(u) { if (Math.random() < 0.35) spawnP(u.x + rnd(-0.5, 0.5), rnd(0.8, 2.4), u.z + rnd(-0.5, 0.5), 0, 0.8, 0, 0.4, 0.15, '#ce93d8'); } };
+Events.on('damage', e => {
+  if (e.amount <= 0) return;
+  const t = unitById(e.tgt); if (!t) return;
+  const m = getMod(t, 'orchid') || getMod(t, 'bloodthorn');
+  if (m) m.data.taken = (m.data.taken || 0) + e.amount;
+});
+registerItem({ id: 'orchid', order: 72, name: '紫怨', en: 'Orchid Malevolence', icon: '怨', color: '#6a1b9a', cost: 3475,
+  parts: ['staff', 'gloves', 'robe'], unique: true, props: { int: 20, as: 30, dmg: 20, manaRegen: 2.5 },
+  desc: '魔力法杖 + 加速手套 + 法师长袍 + 1575。+20 智力，+30 攻击速度，+20 攻击力，+2.5 魔法恢复。主动·灵魂燃烧：沉默 12 码内一名敌人 5 秒，期间其受到伤害 +30%；结束时额外造成期间所受伤害 30% 的魔法伤害。消耗 100 魔法，冷却 18 秒。',
+  active: { target: 'unit', range: 12, cd: 18, mana: 100, onUse(c, t) {
+    AB.addModifier(t, ORCHID_BURN, c.caster, { dur: 5 });
+    AB.burst(t.x, 1.5, t.z, 18, ['#ab47bc', '#ce93d8', '#ffffff'], 5, 0.5, 0.25, 2, 0);
+    emit('orchid', { unit: c.caster.id, target: t.id });
+  } } });
+
 // ===== items/pipe.js =====
 // items/pipe.js — 洞察烟斗 Pipe of Insight: aura +10% magic resistance; active barrier absorbing 400 magic damage on allied
 // heroes nearby for 12 s (modifier absorb: 'magic', combat/damage.js absorbMagic).
@@ -10806,6 +10919,24 @@ registerItem({ id: 'pipe', order: 47, name: '洞察烟斗', en: 'Pipe of Insight
     for (const u of G.heroes) if (!u.dead && u.team === h.team && dst(u, h) < PIPE_R) { AB.addModifier(u, PIPE_BARRIER, h, { dur: 12, data: { left: 400 } }); n++; AB.burst(u.x, 1.5, u.z, 10, ['#80cbc4', '#e0f2f1'], 3, 0.6, 0.22, 2, 0); }
     AB.ringP(h.x, h.z, 0.8, 40, ['#26a69a', '#80cbc4', '#ffffff'], 0.5, 0.4, 1.2, (PIPE_R - 0.8) / 0.5);
     emit('pipe', { unit: h.id, n });
+  } } });
+
+// ===== items/refresher.js =====
+// items/refresher.js — 刷新球 Refresher Orb: active resets ability + item cooldowns (except itself), mirroring Tinker Rearm.
+registerItem({ id: 'refresher', order: 70, name: '刷新球', en: 'Refresher Orb', icon: '刷', color: '#00bcd4', cost: 5000,
+  parts: ['point_booster', 'vitality', 'staff'], unique: true, props: { hp: 250, mana: 250, manaRegen: 3 },
+  desc: '精气之球 + 活力之球 + 魔力法杖 + 1800。+250 生命值，+250 魔法值，+3 魔法恢复。主动·刷新：重置自身所有技能与物品冷却（本物品除外）。消耗 350 魔法，冷却 180 秒。',
+  active: { target: 'none', cd: 180, mana: 350, onUse(c) {
+    const h = c.caster, self = c.item;
+    for (const ab of h.abilities) { ab.cd = 0; ab.cdMax = 0; }
+    for (const it of h.items) if (it && it !== self) {
+      it.cd = 0;
+      if (it.def.heroCd && h.icd) h.icd[it.id] = 0;
+    }
+    AB.burst(h.x, 1.6, h.z, 32, ['#4dd0e1', '#e0f7fa', '#ffffff'], 8, 0.6, 0.3, 3.5, 0);
+    AB.ringP(h.x, h.z, 0.6, 28, ['#26c6da', '#80deea'], 0.5, 0.35, 0.55, 10);
+    AB.float(h, '刷新！', '#4dd0e1', 20, 1.2);
+    emit('refresher', { unit: h.id });
   } } });
 
 // ===== items/salve.js =====

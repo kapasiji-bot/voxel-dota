@@ -22,9 +22,10 @@ function botItemActives(h, b, s, mode, target) {
   const team = [h].concat(s.allies), near = (u, r) => s.foes.filter(f => dst(f, u) < r);
   let ci = itemReady(h, id => id === 'cheese');   // B8 Roshan Cheese: emergency heal
   if (ci >= 0 && s.hpPct < 0.3 && (s.foes.length || recentlyHitByHero(h, 3) || inPit(h.x, h.z))) return botItemUse(h, b, ci, null);
-  let i = itemReady(h, id => id === 'mekansm');
+  let i = itemReady(h, id => id === 'mekansm' || id === 'greaves');
   if (i >= 0) { const hurt = team.filter(a => dst(a, h) < 11 && a.maxHp - a.hp > 250);
-    if (hurt.length >= 2 || hurt.some(a => a.hp < a.maxHp * 0.4)) return botItemUse(h, b, i, null); }
+    const greavesMana = h.items[i].id === 'greaves' && team.filter(a => dst(a, h) < 11 && a.maxMana && a.mana < a.maxMana * 0.35).length >= 2;
+    if (hurt.length >= 2 || hurt.some(a => a.hp < a.maxHp * 0.4) || greavesMana) return botItemUse(h, b, i, null); }
   i = itemReady(h, id => id === 'pipe');
   if (i >= 0 && (mode === 'fight' || recentlyHitByHero(h, 2)) && near(h, 13).length >= 2 && team.filter(a => dst(a, h) < 11).length >= 2) return botItemUse(h, b, i, null);
   i = itemReady(h, id => id === 'glimmer');
@@ -65,5 +66,17 @@ function botItemActives(h, b, s, mode, target) {
   }
   i = itemReady(h, id => id === 'bloodstone');
   if (i >= 0 && s.hpPct < 0.28 && (s.foes.length || recentlyHitByHero(h, 3)) && bsCharges(h.items[i]) >= 4) return botItemUse(h, b, i, null);
+  i = itemReady(h, id => id === 'orchid' || id === 'bloodthorn');
+  if (i >= 0 && (mode === 'fight' || s.foes.some(f => f.channel))) {
+    const t = s.foes.find(f => f.channel && !hasState(f, 'magicImmune') && !foeHasSpellBlock(f) && !f.silenced)
+      || (target && target.isHero && !hasState(target, 'magicImmune') && !foeHasSpellBlock(target) && !target.silenced && disabledFor(target) < 0.5 ? target : null);
+    if (t && botItemUse(h, b, i, t)) return true;
+  }
+  i = itemReady(h, id => id === 'refresher');
+  if (i >= 0 && mode === 'fight' && near(h, 14).length) {
+    const ult = h.abilities[3];
+    const longCd = h.abilities.filter(a => a.lvl > 0 && a.cd > 8).length;
+    if ((ult && ult.lvl > 0 && ult.cd > 12) || longCd >= 2) return botItemUse(h, b, i, null);
+  }
   return false;
 }

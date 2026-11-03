@@ -6,7 +6,7 @@ const TINK_MATRIX = { id: 'tink_matrix', name: '防御矩阵', color: '#26c6da',
 registerHero({
   id: 'tinker', order: 41, name: '修补匠', title: '波希', type: '远程 · 智力', color: '#00838f', nameColor: '#4dd0e1',
   desc: '远程智力型爆发。激光致盲，热导飞弹追踪英雄，防御矩阵吸收魔法，再装填重置冷却持续轰炸。',
-  ai: { role: 'carry', aggr: 1.1, skills: [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3], build: ['arcane', 'blink', 'dagon', 'bloodstone', 'scepter'],
+  ai: { role: 'carry', aggr: 1.1, skills: [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3], build: ['arcane', 'blink', 'dagon', 'bloodstone', 'octarine', 'refresher'],
     combos: [{ id: 'tinker_laser_missile', steps: [{ slot: 0 }, { slot: 1 }], min: 1, radius: 10 }] },
   stats: { primary: 'int', str: 17, strG: 2.2, agi: 13, agiG: 1.2, int: 28, intG: 3.5, dmg: 22, armor: 2, bat: 1.7, range: 11,
     atkPoint: 0.35, backswing: 0.65, speed: 6.7, proj: 22, projColor: '#4dd0e1', hpRegen: 0.75, manaRegen: 1.2, radius: 0.58, height: 3.0 },

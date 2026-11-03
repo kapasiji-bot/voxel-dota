@@ -100,15 +100,17 @@ function useItem(h, slot, target) {
   if (!D.keepInvis) breakInvis(h, 'cast');
   // B12 Linken's: unit-target items (Dagon, Scythe, …) are blocked like spells
   if (A.target === 'unit' && target && target.id && typeof trySpellBlock === 'function' && trySpellBlock(target, h, D.id)) {
-    if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + (A.cd || 0);
-    if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = A.cd || 0; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = A.cd || 0;
+    const cdB = typeof applyCdReduc === 'function' ? applyCdReduc(h, A.cd || 0) : (A.cd || 0);
+    if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + cdB;
+    if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cdB; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = cdB;
     return null;
   }
   if (A.onUse({ caster: h, item: it, def: D }, target) === false) return '无法使用';
   if (A.mana) h.mana -= A.mana;
   emit('itemUse', { unit: h.id, item: D.id, slot, target: target && target.id ? target.id : 0 });
-  if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + (A.cd || 0);
-  if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = A.cd || 0; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = A.cd || 0;
+  const cd = typeof applyCdReduc === 'function' ? applyCdReduc(h, A.cd || 0) : (A.cd || 0);
+  if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + cd;
+  if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cd; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = cd;
   return null;
 }
 // B12: move one inventory item to another unit that has an items array (Spirit Bear). Same team / ownership only.

@@ -226,8 +226,15 @@ modifiers tick → `tickInvis` → AI (creep/tower/hero orders) → `updateCasti
 - **Verify**: `node build/build.js && node build/run-tests.js B13`; screenshots `screenshot-51-shard-tooltip.png`, `screenshot-52-bkb-blackhole.png`, `screenshot-53-courier-burst.png` via `node build/shots-b13.js`.
 
 
+
+## Items polish batch 1
+- **Refresher Orb** resets ability + item CDs (except itself). **Octarine Core** sets `h.cdReduc` / `h.spellLifesteal` in `refreshHero`; `applyCdReduc` shortens ability CDs in `executeCast` and item CDs in `useItem`; spell lifesteal listens to `damage` events for magic/pure ability damage.
+- **Orchid / Bloodthorn**: unit-target silence + Soul Burn (`dmgTakenPct` + end pop); Bloodthorn recipe upgrades Orchid and `modifyAttack` crits vs the silenced target.
+- **Guardian Greaves**: Mekansm + Arcane Boots (boots `uniqueGroup`); heal + mana + self purge. Bot supports buy Greaves / Orchid / Refresher / Octarine (`ai/bot/shop.js`, `actives.js`).
+- **Verify**: `node build/build.js && node build/run-tests.js B19`; screenshots via `node build/shots-b19.js`.
+
 ## Adding an item
-Create `src/items/<id>.js` containing `registerItem({id, order, name, en?, icon, cost, desc, parts?, cat?, props?:{str,agi,int,dmg,armor,as,ms,hp,mana,hpRegen,manaRegen,magicRes,evasion,trueStrike,...}, unique?, consumable?, tick?, modifyAttack?, onAttackLand?, active?:{target:'none'|'unit'|'point', targetTeam?, range?, cd, mana?, onUse(ctx, target)}})`. It shows up in the shop (tab from `itemCat`) automatically; add it to a bot build (`BOT_BUILDS` or hero `ai.build`) and, for actives, a rule in `ai/bot/actives.js`.
+Create `src/items/<id>.js` containing `registerItem({id, order, name, en?, icon, cost, desc, parts?, cat?, props?:{str,agi,int,dmg,armor,as,ms,hp,mana,hpRegen,manaRegen,magicRes,evasion,trueStrike,cdReduc,spellLifesteal,...}, unique?, consumable?, tick?, modifyAttack?, onAttackLand?, active?:{target:'none'|'unit'|'point', targetTeam?, range?, cd, mana?, onUse(ctx, target)}})`. It shows up in the shop (tab from `itemCat`) automatically; add it to a bot build (`BOT_BUILDS` or hero `ai.build`) and, for actives, a rule in `ai/bot/actives.js`.
 
 ## Build and test
 ```
