@@ -354,7 +354,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = 'b9bc862dff';
+const BUILD_ID = '46851f0d9b';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -2789,7 +2789,7 @@ function updateProjectiles(dt) {
 // nearest attackable enemy within edge-distance r. o: {noBuild, heroPen}
 
 // ===== combat/targeting.js =====
-// combat/targeting.js — auto-acquire (findEnemy: nearest visible enemy, units before buildings, heroes slightly penalised;
+// combat/targeting.js — auto-acquire (findEnemy: nearest visible enemy, units before buildings, heroes slightly penalised, couriers preferred;
 // towers ignore neutrals, nothing auto-acquires Roshan) and crit helpers shared by modifyAttack hooks. Split from attack.js (B8).
 function findEnemy(u, r, o = {}) {
   let best = null, bs = 1e9;
@@ -2798,7 +2798,7 @@ function findEnemy(u, r, o = {}) {
     if (o.noBuild && e.isBuilding) continue;
     if (e.isNeutral && (u.isBuilding || e.isRoshan)) continue;   // towers ignore neutral creeps; nothing auto-acquires Roshan
     const d = edgeDist(u, e); if (d > r) continue;
-    const s = d + (e.isBuilding ? 6 : 0) + (e.isHero ? (o.heroPen || 1.5) : 0);
+    const s = d + (e.isBuilding ? 6 : 0) + (e.isHero ? (o.heroPen || 1.5) : 0) + (e.isCourier ? -2.5 : 0);   // prefer sniping couriers over creeps
     if (s < bs) { bs = s; best = e; }
   }
   return best;
@@ -3637,7 +3637,7 @@ function heroAI(h, dt) {
 
 // ===== ai/bot/abilities.js =====
 // ai/bot/abilities.js — generic spell usage driven by ability metadata (target type, values.dmg/dps/stun/radius, ult, channel).
-// Optional per-ability hints in hero files: ai: { disable, selfAoe, global, finisher: '<value key>', mana (mana-drain style), skip,
+// Optional per-ability hints in hero files: ai: { disable, selfAoe, global, finisher: '<value key>', mana (mana-drain style), skip, rearm,
 //   killDmg(h, ab, t) → predicted damage (cast only as a kill), aoe: n (point AoE: wait for n heroes or a low target),
 //   debuffId (don't re-apply), hpBelow (only on targets under this HP fraction), engage (gap closer / blink in),
 //   escape: 'blink'|'invis'|'orb' (used by botEscape; nuke: true keeps it in the offensive rotation too), dodge (Phase Shift), reflect (Counterspell) }
@@ -3645,7 +3645,7 @@ const _abInfo = new Map();
 function abilityInfo(def) {
   if (_abInfo.has(def)) return _abInfo.get(def);
   const v = def.values || {}, ai = def.ai || {};
-  const i = { def, ai, passive: !!def.passive || !!ai.skip || !!def.toggle || !!ai.ultAoe || !!ai.channelWard || !!ai.allyBuff || !!ai.globalDisable || !!def.orb, tgt: def.target, ally: def.targetTeam === 'ally', ult: !!def.ult, channel: !!def.channel,
+  const i = { def, ai, passive: !!def.passive || !!ai.skip || !!def.toggle || !!ai.ultAoe || !!ai.channelWard || !!ai.allyBuff || !!ai.globalDisable || !!ai.rearm || !!def.orb, tgt: def.target, ally: def.targetTeam === 'ally', ult: !!def.ult, channel: !!def.channel,
     dmg: v.dmg !== undefined || v.dps !== undefined, disable: !!(v.stun || ai.disable), global: !!ai.global, finisher: ai.finisher || null, mana: !!ai.mana };
   i.selfAoe = def.target === 'none' && (ai.selfAoe || (i.dmg && !i.global));
   i.special = !!((ai.escape && !ai.nuke) || ai.dodge || ai.reflect);   // never cast by the generic offensive rules (except engage); nuke: also offensive
@@ -3884,6 +3884,7 @@ function botUpdate(h, dt) {
   if (botUseItems(h, b, s, 'lane', null)) return;
   if (botSummon(h, b, s)) return;          // wolves / bear / treants
   if (s.foes.length && (botCombo(h, b, s) || botBigSpells(h, b, s))) return;   // Frost Shield on a sieged tower, clustered-enemy ults
+  if (botCourierSnipe(h, b, s)) { setMode(h, b, 'snipe'); return; }   // ai/bot/courier.js: visible enemy courier
   if (botFendUnits(h, b, s)) { setMode(h, b, 'fend'); return; }
   // Lion-style mana drain etc. when a lone enemy is near and we are safe
   if (s.foes.length === 1 && dst(h, s.foes[0]) < 11 && botCastOnHero(h, b, s, s.foes[0])) return;
@@ -3990,7 +3991,10 @@ function botComboStep(h, b, s) {
   if (cb.target.dead || !canSee(h.team, cb.target)) return end(false);
   if (h.casting) return true;
   const st = cb.steps[cb.i]; if (!st) return end(true);
-  const done = st.item ? (itemSlot(h, st.item) < 0 || h.items[itemSlot(h, st.item)].cd > 0) : h.abilities[st.slot].cd > 0 || isToggled(h, h.abilities[st.slot].def.id);
+  // 0-CD channels (Tinker Rearm): mark done once the channel we issued has finished
+  const done = st.item ? (itemSlot(h, st.item) < 0 || h.items[itemSlot(h, st.item)].cd > 0)
+    : h.abilities[st.slot].cd > 0 || isToggled(h, h.abilities[st.slot].def.id)
+    || (cb.issued === cb.i && !!h.abilities[st.slot].def.channel && !h.channel && G.time - (cb.it || 0) > 0.08);
   if (done && cb.issued === cb.i) { emit('botCombo', { unit: h.id, combo: cb.def.id, step: cb.i, n: cb.steps.length }); cb.i++; cb.t = G.time; if (cb.i >= cb.steps.length) return end(true); return botComboStep(h, b, s); }
   if (G.time - cb.t > 2.5) return end(false);
   if (h.channel) return true;
@@ -4014,6 +4018,7 @@ function botComboStep(h, b, s) {
 //   • the shop logic hit a secret-shop item (b.wantSecret, set by botBuy in ai/bot/shop.js) → send the courier to the own
 //     secret shop; once something is in its bag (bought there via entities/shopsites.js) and nothing more is wanted, deliver;
 //     give up after 60 s waiting.
+//   botCourierSnipe — attack a visible enemy courier when safe-ish (no nearby enemy hero, not under their tower).
 function botCourier(h, b) {
   const c0 = h.courier;
   if (c0 && !c0.dead && !c0.upgraded && (h.gold || 0) >= COURIER_UPGRADE_COST + 400 && h.level >= 6) courierUpgrade(h);
@@ -4027,6 +4032,19 @@ function botCourier(h, b) {
   }
   if (o === 'secret') { courierOrder(h, c.bag.length || (h.stash || []).length ? 'deliver' : 'home'); return; }
   if (idle && (c.bag.length || ((h.stash || []).length && !atShop(h))) && !h.dead) courierOrder(h, 'deliver');
+}
+function botCourierSnipe(h, b, s) {
+  if (b.retreat || s.hpPct < 0.4 || s.foes.some(f => dst(f, h) < 9)) return false;
+  let best = null, bd = 1e9;
+  for (const u of units) {
+    if (!u.isCourier || u.dead || u.team === h.team || !canSee(h.team, u)) continue;
+    const d = dst(h, u); if (d > 14 || d >= bd) continue;
+    if (enemyTowerAt(h.team, u.x, u.z, 0.5)) continue;
+    best = u; bd = d;
+  }
+  if (!best) return false;
+  emit('botCourierSnipe', { unit: h.id, courier: best.id, owner: best.owner && best.owner.id });
+  botAttack(h, best); return true;
 }
 
 // ===== ai/bot/difficulty.js =====
@@ -4203,9 +4221,11 @@ function botUseItems(h, b, s, mode, target) {
 //   botLoot — Aegis for the team's carry (aegisTaker); Cheese / Refresher Shard via cheeseTaker; full-inv Aegis → denyDrop.
 //   botTeam (teamexec.js) — the team plan: Roshan (B10: called by team.js; members gather at the pit opening, enter together
 //     when ≥ 3 are there or after 20 s, commit until Roshan dies unless team.js aborts on danger), group push, defend, ganks.
+//   botStack — near the minute spawn mark, aggro own-side neutrals and drag them out of CAMP_BOX so a second group spawns
+//     (natural stacking). No lane-pull camps in map data → stack + farm only (do not invent pull geometry).
 //   botFarm — carries / tanks (level ≥ 5, from 4:00) farm their own side's camps while no enemy hero is seen and HP > 55 %:
 //     a session lasts ≤ 45 s (then ≥ 25 s laning), camps sized to the hero (large ≥ 7, ancient ≥ 11), one bot per camp.
-// Mode names: 'farm', 'roshan', 'gather', 'aegis'. Stats: b.farmT (s spent farming), b.roshHits.
+// Mode names: 'farm', 'stack', 'roshan', 'gather', 'aegis'. Stats: b.farmT (s spent farming), b.roshHits.
 const ROSH_DOOR = () => ({ x: PIT.x + PIT.dx * (PIT.ring + 2.5), z: PIT.z + PIT.dz * (PIT.ring + 2.5) });
 const roshCallFor = team => { const p = teamPlan(team); return p.mode === 'roshan' ? p : null; };
 const nearPit = team => G.heroes.filter(h => h.team === team && !h.dead && h.bot && dst(h, PIT) < 26);
@@ -4251,6 +4271,47 @@ function botRoshanGo(h, b, s, c) {
   if (canSee(h.team, R)) botAttack(h, R); else botMove(h, PIT.x + b.off, PIT.z - b.off);   // the cliff ring blocks vision until inside
   return 'roshan';
 }
+
+// pull direction: toward map centre so neutrals leave the spawn box without inventing lane-pull spots
+function stackPull(c, dist) {
+  const len = Math.hypot(c.x, c.z) || 1, ux = -c.x / len, uz = -c.z / len;
+  return { x: c.x + ux * dist, z: c.z + uz * dist };
+}
+function stackTaken(c, h) { return G.heroes.some(o => o !== h && o.team === h.team && o.bot && !o.dead && o.bot.stackCamp === c); }
+function pickStackCamp(h) {
+  const J = jg(); let best = null, bd = 1e9;
+  for (const c of J.camps) {
+    if (c.side !== h.team || stackTaken(c, h) || !c.units.some(u => !u.dead)) continue;
+    if (c.size === 'ancient' && h.level < 8) continue;   // don't stack ancients too early
+    const d = dst(h, c); if (d < bd && d < 55) { bd = d; best = c; }
+  }
+  return best;
+}
+function botStack(h, b, s) {
+  if (s.foes.length || s.hpPct < 0.5 || G.time < 70) { b.stackCamp = null; return null; }
+  const J = jg(), rem = J.nextCamp - G.time;
+  if (rem > 9 || rem < 0.15) { b.stackCamp = null; return null; }
+  const role = botRole(h);
+  // supports stack freely; carries only stack a camp they are already farming (or mid-game offlane-ish)
+  if (!b.stackCamp) {
+    if (role === 'carry' && !(b.farmCamp && rem <= 9)) return null;
+    if (role !== 'support' && role !== 'carry' && role !== 'tank' && h.level < 4) return null;
+    const c = (role === 'carry' && b.farmCamp) ? b.farmCamp : pickStackCamp(h); if (!c) return null;
+    b.stackCamp = c; emit('botStack', { unit: h.id, camp: c.id, rem: +rem.toFixed(2) });
+  }
+  const c = b.stackCamp, alive = c.units.filter(u => !u.dead);
+  if (!alive.length) { b.stackCamp = null; return null; }
+  // :51–:54 aggro; :54–:58 drag past CAMP_BOX; last ~2 s clear the box so we don't block the respawn
+  if (rem > 6) {
+    const t = alive.filter(u => canSee(h.team, u)).sort((a, c2) => dst(a, h) - dst(c2, h))[0];
+    if (t && dst(h, c) < CAMP_BOX + 4) botAttack(h, t); else botMove(h, c.x, c.z);
+  } else if (rem > 2) {
+    const p = stackPull(c, CAMP_BOX + 5.5); botMove(h, p.x + b.off * 0.4, p.z - b.off * 0.4);
+  } else {
+    const p = stackPull(c, CAMP_BOX + 9); botMove(h, p.x, p.z);
+  }
+  return 'stack';
+}
 const FARM_LEVEL = { small: 5, medium: 5, large: 7, ancient: 11 };
 function campTaken(c, h) { return G.heroes.some(o => o !== h && o.team === h.team && o.bot && !o.dead && o.bot.farmCamp === c); }
 function pickCamp(h) {
@@ -4278,7 +4339,7 @@ function botFarm(h, b, s) {
   return 'farm';
 }
 function botJungle(h, b, s) {
-  return botLoot(h, b) || botTeam(h, b, s) || botFarm(h, b, s);   // loot → team plan (teamexec.js) → camps
+  return botLoot(h, b) || botTeam(h, b, s) || botStack(h, b, s) || botFarm(h, b, s);   // loot → team → stack → farm
 }
 
 // ===== ai/bot/lane.js =====
@@ -4755,6 +4816,7 @@ function defendTarget(h) {
 //     are clustered (Black Hole / Echo Slam / Chain Frost), or a single hero is killable-low and alone.
 //   ai.channelWard: Death Ward — channel only when safe (HP > 50 %, nobody on top of us) with an enemy hero in reach.
 //   ai.allyBuff: ally-target buff (Frost Shield) on an ally hero / own tower under attack.
+//   ai.rearm: Tinker Rearm — reset CDs when Q/W (or items) are on CD, mana left for a follow-up, and not under fire.
 //   ai.toggle: 'heal' — Voodoo Restoration on while hurt allies are near and mana allows, off otherwise.
 //   B13: auto-pop BKB before commit/channelWard ults (ai/bot/precast.js); skip unit targets with Lotus/Linken.
 //   botKeepChannel: generic channel management — keep channelling while it still hits something; stop an AoE channel with no
@@ -4799,6 +4861,19 @@ function botBigSpells(h, b, s) {
       if (near.length < (ai.globalDisable.min || 2) && !(near.length && near[0].hp / near[0].maxHp < 0.25)) continue;
       emit('botUlt', { unit: h.id, ability: ab.def.id, heroes: near.length }); return !orderCast(h, slot, null);
     }
+    if (ai.rearm) {
+      const ch = lvVal(ab.def, 'channel', ab.lvl) || 3;
+      const need = h.abilities.some(a => a.def.id !== 'rearm' && a.lvl > 0 && a.cd > 1.2)
+        || h.items.some(it => it && it.cd > 1.5);
+      if (!need) continue;
+      const cost = lvVal(ab.def, 'mana', ab.lvl) || 100;
+      const cheap = Math.min(...h.abilities.filter(a => a.def.id !== 'rearm' && a.lvl > 0).map(a => lvVal(a.def, 'mana', a.lvl) || 80), 140);
+      if (h.mana < cost + cheap * 0.45) continue;
+      if (s.hpPct < 0.35 || s.foes.some(f => dst(f, h) < 4.5)) continue;
+      if (ch > 1.25 && s.foes.some(f => dst(f, h) < 11)) continue;   // long channel only when safe
+      emit('botUlt', { unit: h.id, ability: ab.def.id, heroes: s.foes.length });
+      return !orderCast(h, slot, null);
+    }
     if (ai.channelWard) {
       const reach = lvVal(ab.def, 'reach', ab.lvl) || 12, t = s.foes.filter(f => f.isHero && dst(f, h) < reach + 3).sort((a, c) => a.hp - c.hp)[0];
       if (!t || s.hpPct < 0.5 || s.foes.some(f => dst(f, h) < 4) || s.foes.length > s.allies.length + 2) continue;
@@ -4822,6 +4897,10 @@ function botToggles(h, b, s) {
 // true → keep channelling (caller returns), false → channel was stopped / we should act
 function botKeepChannel(h, b, s) {
   const ch = h.channel, d = ch.ab.def, ai = d.ai || {};
+  if (ai.rearm) {   // finish Rearm unless a foe is already on top of us
+    if (s.foes.some(f => dst(f, h) < 4) && s.hpPct < 0.45) { botRetreat(h, b, s); return false; }
+    return true;
+  }
   if (s.hpPct < b.d.retreat * 0.7 && !ai.commit) { botRetreat(h, b, s); return false; }
   if (d.item) return true;
   const r = lvVal(d, 'radius', ch.ab.lvl) || lvVal(d, 'reach', ch.ab.lvl) || 0;
@@ -6563,7 +6642,7 @@ const GameAPI = {
   isInvuln, itemCat, setShopTab, setShopSearch, itemTip, skillTip, recipeTree, hasScepter, scepterDef, applyScepter, itemTargetError, absorbMagic,
   botItemActives, botNextPart, botHas, itemPrice, recipeParts, toggleShop, buildShop, updateShop,
   JUNGLE, PIT, NEUTRAL, CAMP_BOX, LEASH, NEUTRAL_TYPES, CAMP_KINDS, jg, spawnCamp, tickCamps, campBlocker, rosh, spawnRoshan, inPit, drops, spawnDrop, pickupDrop, denyDrop, isDeniableDrop, AEGIS_LIFE, AEGIS_REVIVE,
-  nearShopSite, buyWhere, needsSecret, shopLocLabel, shopSiteHere, sideSells, courierOrder, spawnCourier, courierBagAdd, botJungle, botCourier, pickCamp, roshCallFor, updateCourierHUD,
+  nearShopSite, buyWhere, needsSecret, shopLocLabel, shopSiteHere, sideSells, courierOrder, spawnCourier, courierBagAdd, botJungle, botCourier, botCourierSnipe, botStack, pickStackCamp, pickCamp, roshCallFor, updateCourierHUD,
   campNow() { jg().nextCamp = G.time; tickCamps(); }, };   // B8 jungle / Roshan / drops / shops / courier; campNow = minute-mark camp check now
 window.GameAPI = GameAPI; window.DEBUG = GameAPI; window.VD = GameAPI;   // VD kept for older scripts
 if (location.search.includes('debug=1')) {
@@ -6592,7 +6671,7 @@ Object.assign(GameAPI, {
   buybackCost, buybackReady, canBuyback, doBuyback, BB_CD,
   castGlyph, glyphReady, glyphActive, glyphState, GLYPH_CD, GLYPH_DUR, pressGlyph, pressBuyback, updateDeathUI,
   trySpellBlock, hasShard, applyShard, transferItem, giftItem, giftViaCourier, isGiftable, giftTargetError, GIFT_RANGE, botGift, giftCarry, tickSmoke, breakSmokeGroup: typeof clearSmokeTeam === 'function' ? clearSmokeTeam : undefined,
-  botBuyback, botGlyph, botSmokeBuy, botSmokeUse, botFarmer, emptyLane,
+  botBuyback, botGlyph, botSmokeBuy, botSmokeUse, botFarmer, emptyLane, botBigSpells, botKeepChannel, makeBot, sense,
   // B13 polish: shard coverage helpers, item-aware bot prep, courier burst/upgrade, dynamic wards
   courierUpgrade, courierOrder, spawnCourier, COURIER_SPEED, COURIER_BURST_MULT, COURIER_BURST_DUR, COURIER_UPGRADE_COST, COURIER_UPGRADE_MULT,
   dynamicWardSpots, wardSpots, foeHasSpellBlock, needsBkbChannel, botPopBkb,
@@ -10185,7 +10264,9 @@ registerHero({
   id: 'tinker', order: 41, name: '修补匠', title: '波希', type: '远程 · 智力', color: '#00838f', nameColor: '#4dd0e1',
   desc: '远程智力型爆发。激光致盲，热导飞弹追踪英雄，防御矩阵吸收魔法，再装填重置冷却持续轰炸。',
   ai: { role: 'carry', aggr: 1.1, skills: [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3], build: ['arcane', 'blink', 'dagon', 'bloodstone', 'octarine', 'refresher'],
-    combos: [{ id: 'tinker_laser_missile', steps: [{ slot: 0 }, { slot: 1 }], min: 1, radius: 10 }] },
+    combos: [
+      { id: 'tinker_rearm_burst', steps: [{ slot: 0 }, { slot: 1 }, { slot: 3 }], min: 1, radius: 10, hpBelow: 0.45 },
+      { id: 'tinker_laser_missile', steps: [{ slot: 0 }, { slot: 1 }], min: 1, radius: 10 }] },
   stats: { primary: 'int', str: 17, strG: 2.2, agi: 13, agiG: 1.2, int: 28, intG: 3.5, dmg: 22, armor: 2, bat: 1.7, range: 11,
     atkPoint: 0.35, backswing: 0.65, speed: 6.7, proj: 22, projColor: '#4dd0e1', hpRegen: 0.75, manaRegen: 1.2, radius: 0.58, height: 3.0 },
   portrait: { headY: 2.5 },
@@ -10244,7 +10325,7 @@ registerHero({
         AB.ringP(t.x, t.z, 0.5, 18, ['#80deea', '#e0f7fa'], 0.4, 0.25, 0.4, 6);
         emit('defenseMatrix', { unit: c.caster.id, target: t.id });
       } },
-    { id: 'rearm', ai: { skip: true },
+    { id: 'rearm', ai: { rearm: true },
       scepter: { desc: '再装填引导时间缩短至 1.5/0.75/0 秒。', channel: [1.5, 0.75, 0.01] },
       key: 'R', name: '再装填', icon: '装', color: '#006064', ult: true, target: 'none', castPoint: 0,
       channel: [3.0, 1.5, 0.75], mana: [100, 150, 200], cd: [0, 0, 0],

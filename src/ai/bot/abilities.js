@@ -1,5 +1,5 @@
 // ai/bot/abilities.js — generic spell usage driven by ability metadata (target type, values.dmg/dps/stun/radius, ult, channel).
-// Optional per-ability hints in hero files: ai: { disable, selfAoe, global, finisher: '<value key>', mana (mana-drain style), skip,
+// Optional per-ability hints in hero files: ai: { disable, selfAoe, global, finisher: '<value key>', mana (mana-drain style), skip, rearm,
 //   killDmg(h, ab, t) → predicted damage (cast only as a kill), aoe: n (point AoE: wait for n heroes or a low target),
 //   debuffId (don't re-apply), hpBelow (only on targets under this HP fraction), engage (gap closer / blink in),
 //   escape: 'blink'|'invis'|'orb' (used by botEscape; nuke: true keeps it in the offensive rotation too), dodge (Phase Shift), reflect (Counterspell) }
@@ -7,7 +7,7 @@ const _abInfo = new Map();
 function abilityInfo(def) {
   if (_abInfo.has(def)) return _abInfo.get(def);
   const v = def.values || {}, ai = def.ai || {};
-  const i = { def, ai, passive: !!def.passive || !!ai.skip || !!def.toggle || !!ai.ultAoe || !!ai.channelWard || !!ai.allyBuff || !!ai.globalDisable || !!def.orb, tgt: def.target, ally: def.targetTeam === 'ally', ult: !!def.ult, channel: !!def.channel,
+  const i = { def, ai, passive: !!def.passive || !!ai.skip || !!def.toggle || !!ai.ultAoe || !!ai.channelWard || !!ai.allyBuff || !!ai.globalDisable || !!ai.rearm || !!def.orb, tgt: def.target, ally: def.targetTeam === 'ally', ult: !!def.ult, channel: !!def.channel,
     dmg: v.dmg !== undefined || v.dps !== undefined, disable: !!(v.stun || ai.disable), global: !!ai.global, finisher: ai.finisher || null, mana: !!ai.mana };
   i.selfAoe = def.target === 'none' && (ai.selfAoe || (i.dmg && !i.global));
   i.special = !!((ai.escape && !ai.nuke) || ai.dodge || ai.reflect);   // never cast by the generic offensive rules (except engage); nuke: also offensive

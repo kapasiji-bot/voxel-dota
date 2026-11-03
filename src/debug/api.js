@@ -106,7 +106,7 @@ const GameAPI = {
   isInvuln, itemCat, setShopTab, setShopSearch, itemTip, skillTip, recipeTree, hasScepter, scepterDef, applyScepter, itemTargetError, absorbMagic,
   botItemActives, botNextPart, botHas, itemPrice, recipeParts, toggleShop, buildShop, updateShop,
   JUNGLE, PIT, NEUTRAL, CAMP_BOX, LEASH, NEUTRAL_TYPES, CAMP_KINDS, jg, spawnCamp, tickCamps, campBlocker, rosh, spawnRoshan, inPit, drops, spawnDrop, pickupDrop, denyDrop, isDeniableDrop, AEGIS_LIFE, AEGIS_REVIVE,
-  nearShopSite, buyWhere, needsSecret, shopLocLabel, shopSiteHere, sideSells, courierOrder, spawnCourier, courierBagAdd, botJungle, botCourier, pickCamp, roshCallFor, updateCourierHUD,
+  nearShopSite, buyWhere, needsSecret, shopLocLabel, shopSiteHere, sideSells, courierOrder, spawnCourier, courierBagAdd, botJungle, botCourier, botCourierSnipe, botStack, pickStackCamp, pickCamp, roshCallFor, updateCourierHUD,
   campNow() { jg().nextCamp = G.time; tickCamps(); }, };   // B8 jungle / Roshan / drops / shops / courier; campNow = minute-mark camp check now
 window.GameAPI = GameAPI; window.DEBUG = GameAPI; window.VD = GameAPI;   // VD kept for older scripts
 if (location.search.includes('debug=1')) {

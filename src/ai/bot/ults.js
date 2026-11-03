@@ -3,6 +3,7 @@
 //     are clustered (Black Hole / Echo Slam / Chain Frost), or a single hero is killable-low and alone.
 //   ai.channelWard: Death Ward — channel only when safe (HP > 50 %, nobody on top of us) with an enemy hero in reach.
 //   ai.allyBuff: ally-target buff (Frost Shield) on an ally hero / own tower under attack.
+//   ai.rearm: Tinker Rearm — reset CDs when Q/W (or items) are on CD, mana left for a follow-up, and not under fire.
 //   ai.toggle: 'heal' — Voodoo Restoration on while hurt allies are near and mana allows, off otherwise.
 //   B13: auto-pop BKB before commit/channelWard ults (ai/bot/precast.js); skip unit targets with Lotus/Linken.
 //   botKeepChannel: generic channel management — keep channelling while it still hits something; stop an AoE channel with no
@@ -47,6 +48,19 @@ function botBigSpells(h, b, s) {
       if (near.length < (ai.globalDisable.min || 2) && !(near.length && near[0].hp / near[0].maxHp < 0.25)) continue;
       emit('botUlt', { unit: h.id, ability: ab.def.id, heroes: near.length }); return !orderCast(h, slot, null);
     }
+    if (ai.rearm) {
+      const ch = lvVal(ab.def, 'channel', ab.lvl) || 3;
+      const need = h.abilities.some(a => a.def.id !== 'rearm' && a.lvl > 0 && a.cd > 1.2)
+        || h.items.some(it => it && it.cd > 1.5);
+      if (!need) continue;
+      const cost = lvVal(ab.def, 'mana', ab.lvl) || 100;
+      const cheap = Math.min(...h.abilities.filter(a => a.def.id !== 'rearm' && a.lvl > 0).map(a => lvVal(a.def, 'mana', a.lvl) || 80), 140);
+      if (h.mana < cost + cheap * 0.45) continue;
+      if (s.hpPct < 0.35 || s.foes.some(f => dst(f, h) < 4.5)) continue;
+      if (ch > 1.25 && s.foes.some(f => dst(f, h) < 11)) continue;   // long channel only when safe
+      emit('botUlt', { unit: h.id, ability: ab.def.id, heroes: s.foes.length });
+      return !orderCast(h, slot, null);
+    }
     if (ai.channelWard) {
       const reach = lvVal(ab.def, 'reach', ab.lvl) || 12, t = s.foes.filter(f => f.isHero && dst(f, h) < reach + 3).sort((a, c) => a.hp - c.hp)[0];
       if (!t || s.hpPct < 0.5 || s.foes.some(f => dst(f, h) < 4) || s.foes.length > s.allies.length + 2) continue;
@@ -70,6 +84,10 @@ function botToggles(h, b, s) {
 // true → keep channelling (caller returns), false → channel was stopped / we should act
 function botKeepChannel(h, b, s) {
   const ch = h.channel, d = ch.ab.def, ai = d.ai || {};
+  if (ai.rearm) {   // finish Rearm unless a foe is already on top of us
+    if (s.foes.some(f => dst(f, h) < 4) && s.hpPct < 0.45) { botRetreat(h, b, s); return false; }
+    return true;
+  }
   if (s.hpPct < b.d.retreat * 0.7 && !ai.commit) { botRetreat(h, b, s); return false; }
   if (d.item) return true;
   const r = lvVal(d, 'radius', ch.ab.lvl) || lvVal(d, 'reach', ch.ab.lvl) || 0;

@@ -49,7 +49,10 @@ function botComboStep(h, b, s) {
   if (cb.target.dead || !canSee(h.team, cb.target)) return end(false);
   if (h.casting) return true;
   const st = cb.steps[cb.i]; if (!st) return end(true);
-  const done = st.item ? (itemSlot(h, st.item) < 0 || h.items[itemSlot(h, st.item)].cd > 0) : h.abilities[st.slot].cd > 0 || isToggled(h, h.abilities[st.slot].def.id);
+  // 0-CD channels (Tinker Rearm): mark done once the channel we issued has finished
+  const done = st.item ? (itemSlot(h, st.item) < 0 || h.items[itemSlot(h, st.item)].cd > 0)
+    : h.abilities[st.slot].cd > 0 || isToggled(h, h.abilities[st.slot].def.id)
+    || (cb.issued === cb.i && !!h.abilities[st.slot].def.channel && !h.channel && G.time - (cb.it || 0) > 0.08);
   if (done && cb.issued === cb.i) { emit('botCombo', { unit: h.id, combo: cb.def.id, step: cb.i, n: cb.steps.length }); cb.i++; cb.t = G.time; if (cb.i >= cb.steps.length) return end(true); return botComboStep(h, b, s); }
   if (G.time - cb.t > 2.5) return end(false);
   if (h.channel) return true;

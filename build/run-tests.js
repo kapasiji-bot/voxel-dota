@@ -255,6 +255,7 @@ require('./tests/b18.js')({ test, boot, assert });
 require('./tests/b19.js')({ test, boot, assert });
 require('./tests/b20.js')({ test, boot, assert });
 require('./tests/b22.js')({ test, boot, assert });
+require('./tests/b23.js')({ test, boot, assert });
 require('./tests/fullscreen.js')({ test, boot, assert });
 require('./tests/net.js')({ test, boot, assert });
 

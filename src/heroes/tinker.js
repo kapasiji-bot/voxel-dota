@@ -7,7 +7,9 @@ registerHero({
   id: 'tinker', order: 41, name: '修补匠', title: '波希', type: '远程 · 智力', color: '#00838f', nameColor: '#4dd0e1',
   desc: '远程智力型爆发。激光致盲，热导飞弹追踪英雄，防御矩阵吸收魔法，再装填重置冷却持续轰炸。',
   ai: { role: 'carry', aggr: 1.1, skills: [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3], build: ['arcane', 'blink', 'dagon', 'bloodstone', 'octarine', 'refresher'],
-    combos: [{ id: 'tinker_laser_missile', steps: [{ slot: 0 }, { slot: 1 }], min: 1, radius: 10 }] },
+    combos: [
+      { id: 'tinker_rearm_burst', steps: [{ slot: 0 }, { slot: 1 }, { slot: 3 }], min: 1, radius: 10, hpBelow: 0.45 },
+      { id: 'tinker_laser_missile', steps: [{ slot: 0 }, { slot: 1 }], min: 1, radius: 10 }] },
   stats: { primary: 'int', str: 17, strG: 2.2, agi: 13, agiG: 1.2, int: 28, intG: 3.5, dmg: 22, armor: 2, bat: 1.7, range: 11,
     atkPoint: 0.35, backswing: 0.65, speed: 6.7, proj: 22, projColor: '#4dd0e1', hpRegen: 0.75, manaRegen: 1.2, radius: 0.58, height: 3.0 },
   portrait: { headY: 2.5 },
@@ -66,7 +68,7 @@ registerHero({
         AB.ringP(t.x, t.z, 0.5, 18, ['#80deea', '#e0f7fa'], 0.4, 0.25, 0.4, 6);
         emit('defenseMatrix', { unit: c.caster.id, target: t.id });
       } },
-    { id: 'rearm', ai: { skip: true },
+    { id: 'rearm', ai: { rearm: true },
       scepter: { desc: '再装填引导时间缩短至 1.5/0.75/0 秒。', channel: [1.5, 0.75, 0.01] },
       key: 'R', name: '再装填', icon: '装', color: '#006064', ult: true, target: 'none', castPoint: 0,
       channel: [3.0, 1.5, 0.75], mana: [100, 150, 200], cd: [0, 0, 0],

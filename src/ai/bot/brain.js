@@ -48,6 +48,7 @@ function botUpdate(h, dt) {
   if (botUseItems(h, b, s, 'lane', null)) return;
   if (botSummon(h, b, s)) return;          // wolves / bear / treants
   if (s.foes.length && (botCombo(h, b, s) || botBigSpells(h, b, s))) return;   // Frost Shield on a sieged tower, clustered-enemy ults
+  if (botCourierSnipe(h, b, s)) { setMode(h, b, 'snipe'); return; }   // ai/bot/courier.js: visible enemy courier
   if (botFendUnits(h, b, s)) { setMode(h, b, 'fend'); return; }
   // Lion-style mana drain etc. when a lone enemy is near and we are safe
   if (s.foes.length === 1 && dst(h, s.foes[0]) < 11 && botCastOnHero(h, b, s, s.foes[0])) return;

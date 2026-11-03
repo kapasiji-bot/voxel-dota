@@ -1,4 +1,4 @@
-// combat/targeting.js — auto-acquire (findEnemy: nearest visible enemy, units before buildings, heroes slightly penalised;
+// combat/targeting.js — auto-acquire (findEnemy: nearest visible enemy, units before buildings, heroes slightly penalised, couriers preferred;
 // towers ignore neutrals, nothing auto-acquires Roshan) and crit helpers shared by modifyAttack hooks. Split from attack.js (B8).
 function findEnemy(u, r, o = {}) {
   let best = null, bs = 1e9;
@@ -7,7 +7,7 @@ function findEnemy(u, r, o = {}) {
     if (o.noBuild && e.isBuilding) continue;
     if (e.isNeutral && (u.isBuilding || e.isRoshan)) continue;   // towers ignore neutral creeps; nothing auto-acquires Roshan
     const d = edgeDist(u, e); if (d > r) continue;
-    const s = d + (e.isBuilding ? 6 : 0) + (e.isHero ? (o.heroPen || 1.5) : 0);
+    const s = d + (e.isBuilding ? 6 : 0) + (e.isHero ? (o.heroPen || 1.5) : 0) + (e.isCourier ? -2.5 : 0);   // prefer sniping couriers over creeps
     if (s < bs) { bs = s; best = e; }
   }
   return best;
