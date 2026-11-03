@@ -22,4 +22,6 @@ Object.assign(GameAPI, {
   BOT_BUILDS, BOT_EXTRA, botBuild, botShop, botHas, botRole,
   // polish batch 3: hero select filters
   HERO_EN, ATTR_CN, ROLE_CN, SEL, heroRoleTag, heroSearchBlob, setHeroFilter, applyHeroFilter,
+  // polish batch 7: render perf
+  sun, updateShadowCam, updateCamera, vmat, vglow,
 });

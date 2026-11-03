@@ -354,7 +354,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = 'd363b1ff9c';
+const BUILD_ID = '3350e76a40';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -711,7 +711,7 @@ scene.add(new T.HemisphereLight('#ffffff', '#4a5a3a', 0.62));
 const sun = new T.DirectionalLight('#fff1d6', 0.9);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 260 });
+Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 10, far: 220 });  // batch7: start mid-zoom; updateShadowCam refits
 sun.shadow.bias = -0.0006;
 scene.add(sun); scene.add(sun.target);
 const ovc = $('ov'), ov = ovc.getContext('2d');
@@ -877,9 +877,10 @@ function renderWalls(rdt) {
 }
 
 // ===== render/voxel.js =====
-// render/voxel.js — merge boxes into vertex-coloured geometry; build animated part-based models; humanoid() helper.
-// Box format: [cx, cy, cz, w, h, d, '#color'] relative to the part pivot. Models face +Z.
-// ================= voxel models =================
+// render/voxel.js — merge boxes into vertex-coloured geometry; buildModel packs parts into 1–2 SkinnedMeshes
+// (Lambert + optional glow) so a humanoid is ~2 draw calls instead of ~5–10. Part pivots are Bones; syncModel still
+// writes rotation/position on u.parts.*. Geometry is cached per model key. Tradeoff: first bind costs a bit more RAM
+// per unique key; animations/fog ghost/illusion tint keep working via shared materials + bone transforms.
 const vmat = new T.MeshLambertMaterial({ vertexColors: true });
 const vglow = new T.MeshBasicMaterial({ vertexColors: true });
 const geoCache = {};
@@ -904,22 +905,60 @@ function voxGeo(boxes) {
   geo.setIndex(idx); geo.computeBoundingSphere();
   return geo;
 }
+function skinGeo(partsBoxes) {
+  const pos = [], nor = [], col = [], idx = [], skinI = [], skinW = []; const c = new T.Color();
+  for (const [bi, boxes] of partsBoxes) {
+    for (const b of boxes) {
+      const [x, y, z, w, h, d, color] = b; c.set(color);
+      const g = new T.BoxGeometry(w, h, d); g.translate(x, y, z);
+      const p = g.attributes.position, n = g.attributes.normal, base = pos.length / 3;
+      for (let i = 0; i < p.count; i++) {
+        pos.push(p.getX(i), p.getY(i), p.getZ(i)); nor.push(n.getX(i), n.getY(i), n.getZ(i));
+        const ny = n.getY(i), s = ny > 0.5 ? 1.0 : ny < -0.5 ? 0.6 : 0.88;
+        col.push(c.r * s, c.g * s, c.b * s);
+        skinI.push(bi, 0, 0, 0); skinW.push(1, 0, 0, 0);
+      }
+      const ix = g.index; for (let i = 0; i < ix.count; i++) idx.push(base + ix.getX(i));
+      g.dispose();
+    }
+  }
+  const geo = new T.BufferGeometry();
+  geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
+  geo.setAttribute('color', new T.Float32BufferAttribute(col, 3));
+  geo.setAttribute('skinIndex', new T.Uint16BufferAttribute(skinI, 4));
+  geo.setAttribute('skinWeight', new T.Float32BufferAttribute(skinW, 4));
+  geo.setIndex(idx); geo.computeBoundingSphere();
+  return geo;
+}
 // def: { partName: {p:[px,py,pz], b:[boxes], g:[glow boxes]} }
 function buildModel(key, def, scale) {
   const root = new T.Group(), inner = new T.Group(); root.add(inner);
-  const parts = {};
+  const parts = {}, bones = [];
+  const rootBone = new T.Bone(); rootBone.name = '_root'; bones.push(rootBone);
+  const lambert = [], glow = [];
   for (const name in def) {
-    const pd = def[name], g = new T.Group(); g.position.set(pd.p[0], pd.p[1], pd.p[2]);
-    if (pd.b && pd.b.length) { const ck = key + '|' + name; const m = new T.Mesh(geoCache[ck] || (geoCache[ck] = voxGeo(pd.b)), vmat); m.castShadow = true; g.add(m); }
-    if (pd.g && pd.g.length) { const ck = key + '|' + name + '|g'; const m = new T.Mesh(geoCache[ck] || (geoCache[ck] = voxGeo(pd.g)), vglow); g.add(m); }
-    inner.add(g); parts[name] = g;
+    const pd = def[name], bone = new T.Bone(); bone.name = name;
+    bone.position.set(pd.p[0], pd.p[1], pd.p[2]); rootBone.add(bone); bones.push(bone); parts[name] = bone;
+    const bi = bones.length - 1;
+    if (pd.b && pd.b.length) lambert.push([bi, pd.b]);
+    if (pd.g && pd.g.length) glow.push([bi, pd.g]);
+  }
+  const skel = new T.Skeleton(bones);
+  inner.add(rootBone);
+  if (lambert.length) {
+    const ck = key + '|skin'; const geo = geoCache[ck] || (geoCache[ck] = skinGeo(lambert));
+    const m = new T.SkinnedMesh(geo, vmat); m.castShadow = true; m.bind(skel); inner.add(m); root.userData.body = m;
+  }
+  if (glow.length) {
+    const ck = key + '|skin|g'; const geo = geoCache[ck] || (geoCache[ck] = skinGeo(glow));
+    const m = new T.SkinnedMesh(geo, vglow); m.bind(skel); inner.add(m); root.userData.glow = m;
   }
   if (scale) inner.scale.setScalar(scale);
-  root.userData.parts = parts; root.userData.inner = inner;
+  root.userData.parts = parts; root.userData.inner = inner; root.userData.skeleton = skel;
   return root;
 }
 function humanoid(o) {
-  // o: skin, shirt, pants, boots, hair..., extra parts
   const hw = o.hip || 0.32, sh = o.sh || 0.8, legH = o.legH || 1.2, bodyH = o.bodyH || 1.1;
   const def = {
     legL: { p: [-hw, legH, 0], b: [[0, -legH / 2, 0, o.legW || 0.45, legH, 0.5, o.pants], [0, -legH + 0.12, 0.06, (o.legW || 0.45) + 0.06, 0.25, 0.62, o.boots]] },
@@ -1253,12 +1292,18 @@ function renderFog(rdt) {
     FOW_DATA[i * 4] = FOW_DATA[i * 4 + 2] = (c * 255) | 0; FOW_DATA[i * 4 + 1] = FOG.off || ex[i] ? 255 : 0; FOW_DATA[i * 4 + 3] = 255;
   }
   FOW_TEX.needsUpdate = true;
+  const camR2 = (G.cam.dist * 1.15 + 22) ** 2, cx = G.cam.x, cz = G.cam.z;
   for (const u of units) {
     if (u.dead || !u.model || u.isBuilding) continue;
     const own = u.team === team, show = own || canSee(team, u);
     if (u.model.visible !== show) u.model.visible = show;
     setGhost(u, own && !u.isWard && (isInvisible(u) || hasState(u, 'hidden')));
     if (u.isIllusion) setTint(u, own && !u._ghost);
+    // batch7: only near-camera units cast shadows (buildings always cast via their meshes)
+    const body = u.model.userData.body; if (body) {
+      const cast = show && (u.x - cx) ** 2 + (u.z - cz) ** 2 < camR2;
+      if (body.castShadow !== cast) body.castShadow = cast;
+    }
   }
   updateDayNight(rdt);
 }
@@ -5066,6 +5111,14 @@ function updateCamera(dt) {
   camera.position.set(c.x, c.dist * Math.sin(CAM_PITCH), c.z + c.dist * Math.cos(CAM_PITCH));
   camera.lookAt(c.x, 0, c.z);
   sun.position.set(c.x + 40, 90, c.z + 25); sun.target.position.set(c.x, 0, c.z);
+  updateShadowCam(c);
+}
+// Fit the orthographic shadow frustum to the RTS camera so the 2048 map covers the view, not ±70 of the whole map.
+function updateShadowCam(c) {
+  const half = clamp(c.dist * 0.7 + 12, 28, 56), sc = sun.shadow.camera;
+  if (Math.abs(sc.right - half) < 0.25) return;
+  sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.near = 10; sc.far = 220;
+  sc.updateProjectionMatrix();
 }
 
 
@@ -6719,6 +6772,8 @@ Object.assign(GameAPI, {
   BOT_BUILDS, BOT_EXTRA, botBuild, botShop, botHas, botRole,
   // polish batch 3: hero select filters
   HERO_EN, ATTR_CN, ROLE_CN, SEL, heroRoleTag, heroSearchBlob, setHeroFilter, applyHeroFilter,
+  // polish batch 7: render perf
+  sun, updateShadowCam, updateCamera, vmat, vglow,
 });
 
 // ===== net/rng.js =====

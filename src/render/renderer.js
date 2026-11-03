@@ -14,7 +14,7 @@ scene.add(new T.HemisphereLight('#ffffff', '#4a5a3a', 0.62));
 const sun = new T.DirectionalLight('#fff1d6', 0.9);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 260 });
+Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, near: 10, far: 220 });  // batch7: start mid-zoom; updateShadowCam refits
 sun.shadow.bias = -0.0006;
 scene.add(sun); scene.add(sun.target);
 const ovc = $('ov'), ov = ovc.getContext('2d');

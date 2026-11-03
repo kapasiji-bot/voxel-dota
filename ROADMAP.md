@@ -37,14 +37,15 @@ Heroes come in batches of 3–4. Each batch is grouped by the engine features it
 | **Roshan polish ✅ batch 4** | 3rd+ kill drops 刷新碎片 Refresher Shard (ability-CD consumable); ground Aegis contested pickup + **deny** (Alt+RMB / A-click → `denyDrop`); bots loot shard / deny Aegis if inventory full | done |
 | **Jungle/AI polish ✅ batch 5** | Bot jungle **stack** (drag neutrals out of `CAMP_BOX` before minute spawn); no invented pull camps (stack+farm); **courier snipe** when safe; Tinker **Rearm** (`ai.rearm`, botBigSpells + keepChannel + cheap rearm combo) | done |
 | **Shared ally courier ✅ batch 6** | Teammates issue deliver/home/secret on an ally courier (LAN lockstep `cour` + owner id); stash/bag/gold stay with the owner; F3 / Shift+F3 + HUD ownership; click/Tab/F2 select team couriers | done |
-| Later polish | More item-aware bot recipes; render performance (instancing / merge meshes) | planned |
+| **Render perf ✅ batch 7** | Unit models → 1–2 **SkinnedMesh**es per unit (bones = parts); camera-fitted shadow frustum; near-cam castShadow cull | done |
+| Later polish | More item-aware bot recipes; LAN replay / spectate / checkpoints | planned |
 
 ## Suggested next steps (older notes)
-- **Items / UI / Roshan / jungle / courier polish:** batches 1–6 done (luxury items, Aghs gift, select filters, Roshan shard + Aegis deny, bot stack + courier snipe + Tinker Rearm, shared ally courier). Core gameplay polish list complete; next optional: render performance (instancing / merge meshes).
+- **Items / UI / Roshan / jungle / courier / render polish:** batches 1–7 done. Gameplay + first render pass complete; next optional: LAN replay / spectate / checkpoints.
 - **Sound (B9 follow-ups):** voice lines / recorded announcer, per-hero attack timbres, reverb in the Roshan pit, music.
 - **Teamwork (B10/B12 follow-ups):** item-aware combos (BKB → Black Hole, Blink → Eul's), dynamic ward spots; smoke/buyback/glyph/lane-farmer already in B12.
 - **Jungle (B8 follow-ups):** Aegis deny + Refresher Shard (batch 4); bots stacking + courier snipe + Tinker Rearm (batch 5); shared ally courier (batch 6). Still open: neutral item drops.
 - **Audio:** Web Audio synth SFX (attacks, spell casts, crits, kills) and a mute toggle; still fully offline.
 - **Bots:** more item-aware combos (BKB → Black Hole); high-ground siege micro; dynamic ward spots.
-- **Perf:** merge static per-part unit meshes into one skinned/instanced mesh per unit type (fewer draw calls with 30+ units), shadow-map extent fitted to the camera view.
+- **Perf:** ✅ batch 7 — per-unit SkinnedMesh merge (parts→bones) + camera-fitted shadow frustum + near-cam shadow casters. Still open: true GPU instancing for identical idle creeps, atlas LODs.
 - **Multiplayer:** LAN lockstep done (B11). Next: a signalling server + STUN/TURN for internet play, spectator mode, replays from the order log, checkpointed rejoin, host migration.

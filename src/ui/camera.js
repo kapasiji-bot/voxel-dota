@@ -17,5 +17,13 @@ function updateCamera(dt) {
   camera.position.set(c.x, c.dist * Math.sin(CAM_PITCH), c.z + c.dist * Math.cos(CAM_PITCH));
   camera.lookAt(c.x, 0, c.z);
   sun.position.set(c.x + 40, 90, c.z + 25); sun.target.position.set(c.x, 0, c.z);
+  updateShadowCam(c);
+}
+// Fit the orthographic shadow frustum to the RTS camera so the 2048 map covers the view, not ±70 of the whole map.
+function updateShadowCam(c) {
+  const half = clamp(c.dist * 0.7 + 12, 28, 56), sc = sun.shadow.camera;
+  if (Math.abs(sc.right - half) < 0.25) return;
+  sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.near = 10; sc.far = 220;
+  sc.updateProjectionMatrix();
 }
 

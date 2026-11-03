@@ -37,12 +37,18 @@ function renderFog(rdt) {
     FOW_DATA[i * 4] = FOW_DATA[i * 4 + 2] = (c * 255) | 0; FOW_DATA[i * 4 + 1] = FOG.off || ex[i] ? 255 : 0; FOW_DATA[i * 4 + 3] = 255;
   }
   FOW_TEX.needsUpdate = true;
+  const camR2 = (G.cam.dist * 1.15 + 22) ** 2, cx = G.cam.x, cz = G.cam.z;
   for (const u of units) {
     if (u.dead || !u.model || u.isBuilding) continue;
     const own = u.team === team, show = own || canSee(team, u);
     if (u.model.visible !== show) u.model.visible = show;
     setGhost(u, own && !u.isWard && (isInvisible(u) || hasState(u, 'hidden')));
     if (u.isIllusion) setTint(u, own && !u._ghost);
+    // batch7: only near-camera units cast shadows (buildings always cast via their meshes)
+    const body = u.model.userData.body; if (body) {
+      const cast = show && (u.x - cx) ** 2 + (u.z - cz) ** 2 < camR2;
+      if (body.castShadow !== cast) body.castShadow = cast;
+    }
   }
   updateDayNight(rdt);
 }
