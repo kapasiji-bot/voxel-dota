@@ -27,3 +27,9 @@ Object.assign(GameAPI, {
 });
 Object.assign(GameAPI, { IND, indInfo, updateIndicators, pressSkill, skillTargeting, mouse });
 Object.assign(GameAPI, { CREEP_INST, updateCreepInst, creepLodR2, creepInstR2 });
+Object.assign(GameAPI, {
+  // B29 neutrals + bot HG/combo micro
+  NEUTRAL_DROP_CHANCE, NEUTRAL_POOL, NEUTRAL_TIER_AT, isNeutralItem, invItem, giveNeutral, dropNeutral,
+  tryNeutralDrop, forceNeutralDrop, pickNeutralId,
+  isHighGround, botForceSave, botBlinkSetup, teamDive,
+});

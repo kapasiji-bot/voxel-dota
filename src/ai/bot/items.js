@@ -28,18 +28,34 @@ function botUseItems(h, b, s, mode, target) {
   if (bk >= 0 && h.items[bk].cd <= 0 && mode === 'fight' && s.foes.filter(f => dst(f, h) < 12).length >= 2) { useItem(h, bk, null); return true; }
   const bl = itemSlot(h, 'blink');
   if (bl >= 0 && h.items[bl].cd <= 0) {
-    if (mode === 'fight' && target && !h.proj && dst(h, target) > 7 && dst(h, target) < 23 && s.hpPct > 0.5 && !enemyTowerAt(h.team, target.x, target.z, 0)) { useItem(h, bl, { x: target.x, z: target.z }); return true; }
+    if (mode === 'fight' && target && !h.proj && dst(h, target) > 7 && dst(h, target) < 23 && s.hpPct > 0.5 && !enemyTowerAt(h.team, target.x, target.z, 0)) {
+      useItem(h, bl, { x: target.x, z: target.z }); b.blinkInit = G.time; return true;   // B29: Blink→setup
+    }
     if (mode === 'retreat' && s.foes.some(f => dst(f, h) < 8)) {
       const sp = heroSpawn(h.team), d = AB.dir(h, sp); useItem(h, bl, { x: h.x + d.x * 22, z: h.z + d.z * 22 });
       b.blinkEsc = G.time; return true;   // B13: mark for Eul's / Force follow-up
     }
   }
   // B13 Blink→Eul's / Force Staff escape: after a blink retreat, if still chased, cyclone self or force toward base
-  if (mode === 'retreat' && b.blinkEsc && G.time - b.blinkEsc < 1.8 && s.foes.some(f => dst(f, h) < 9)) {
+  if (mode === 'retreat' && b.blinkEsc != null && G.time - b.blinkEsc < 1.8 && s.foes.some(f => dst(f, h) < 9)) {
     const ei = itemReady(h, id => id === 'euls');
-    if (ei >= 0) { b.blinkEsc = 0; return botItemUse(h, b, ei, h); }
+    if (ei >= 0) { b.blinkEsc = null; return botItemUse(h, b, ei, h); }
     const fi = itemReady(h, id => id === 'force');
-    if (fi >= 0) { const sp = heroSpawn(h.team); h.facing = Math.atan2(sp.x - h.x, sp.z - h.z); b.blinkEsc = 0; return botItemUse(h, b, fi, h); }
+    if (fi >= 0) { const sp = heroSpawn(h.team); h.facing = Math.atan2(sp.x - h.x, sp.z - h.z); b.blinkEsc = null; return botItemUse(h, b, fi, h); }
+  }
+  // B29 Blink→Eul/Force setup after fight blink
+  if (mode === 'fight' && botBlinkSetup(h, b, target)) return true;
+  // B29 Force-save ally under tower / retreating
+  if ((mode === 'fight' || mode === 'retreat' || mode === 'siege') && botForceSave(h, b)) return true;
+  // B29 neutral-slot actives (escape / fight)
+  if (h.neutral && h.neutral.def.active && h.neutral.cd <= 0) {
+    const nid = h.neutral.id;
+    if (mode === 'retreat' && s.foes.some(f => dst(f, h) < 10) && (nid === 'n_swift' || nid === 'n_prism' || nid === 'n_mirror')) {
+      if (!useItem(h, 6, null)) { (b.itemUses = b.itemUses || {})[nid] = (b.itemUses[nid] || 0) + 1; return true; }
+    }
+    if (mode === 'fight' && nid === 'n_mirror' && s.foes.filter(f => dst(f, h) < 11).length >= 2) {
+      if (!useItem(h, 6, null)) { (b.itemUses = b.itemUses || {})[nid] = (b.itemUses[nid] || 0) + 1; return true; }
+    }
   }
   return botItemActives(h, b, s, mode, target);   // ai/bot/actives.js: Mek, Pipe, Glimmer, Eul's, Force Staff, Dagon, Scythe
 }

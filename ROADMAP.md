@@ -12,7 +12,7 @@ Heroes come in batches of 3–4. Each batch is grouped by the engine features it
 | **AI batch ✅ done (pulled forward from B5)** | computer heroes (1–5 Dire, 0–4 Radiant allies, 3 difficulties), DOTA-like kills, respawns, tower aggro, kill feed, Tab scoreboard, minimap hero icons | (no new heroes; bots play every hero — now 25) |
 | **B5: channelers ✅ done** | toggle abilities with mana drain/s, rebounce bounce projectiles (`AB.bounce`), pull/displacement (`AB.pull/shove`), temporary terrain walls updating the pathing grid (`map/walls.js`), splitting summons, channel-bound wards, spell-cast-trigger passives, attack-damage reduction + attacker-slow shields; bots: clustered-hero ults, safe Death Ward, Chain Frost on 2+ heroes, ally shields, toggle heal, stop useless AoE channels | 巫妖 Lich (frost blast, frost shield, sinister gaze, chain frost); 谜团 Enigma (malefice, eidolons, midnight pulse, black hole); 巫医 Witch Doctor (cask, voodoo restoration, maledict, death ward); 撼地者 Earthshaker (fissure, enchant totem, aftershock, echo slam) — 18 heroes |
 | **Bot economy ✅ done** | recipe items (相位鞋 法力靴 暗影护符 纷争面纱 狂战斧 强袭胸甲 先锋盾; BKB from 食人魔之斧), role builds of real items with part buying, TP ≈ 6–7 per bot per 20 min, evidence-based sentries/dust with team caps | — |
-| **Bot follow-ups** | high ground ✅, courier / side shop ✅, team-wide decisions ✅ (B10), smoke ganks ✅ (B12), dynamic ward spots ✅ (B13) | mostly done |
+| **Bot follow-ups** | high ground ✅, courier / side shop ✅, team-wide decisions ✅ (B10), smoke ganks ✅ (B12), dynamic ward spots ✅ (B13), HG abort + Blink/Force micro ✅ (B29) | done |
 | **B6: polish ✅ done (final)** | autocast orbs (right-click toggle), cone waves + cone indicator, global spells, int-based damage, modifier on-cast hooks, Blur (hidden at distance), highest-crit rule / evasion beats crit / huge crit numbers; bot combos from hero hints, Fissure walls block vision, glowing pooled projectiles, framed summon portraits, merged-ground perf pass (−40 % triangles), heap check in the 20-min sim, UX fixes | 痛苦女王 Queen of Pain; 沉默术士 Silencer; 幻影刺客 Phantom Assassin — 21 heroes |
 
 ## Next-step batches (user-approved order)
@@ -41,13 +41,13 @@ Heroes come in batches of 3–4. Each batch is grouped by the engine features it
 | **Render perf ✅ batch 7** | Unit models → 1–2 **SkinnedMesh**es per unit (bones = parts); camera-fitted shadow frustum; near-cam castShadow cull | done |
 | **Indicators / feel ✅** | ability targeting previews (cast-range ring green/red, AoE disk, cone trapezoid via `w0`, line skillshot, unit aim dash, A-move attack ring); cast confirm click marker; last-hit gold ring + soft thud (`lastHit` event); `IND`/`indInfo` for tests (`b27.js`) | done |
 | **Creep GPU instancing + LOD ✅** | far identical lane creeps → shared `InstancedMesh` (`render/creepinst.js`); near/attacking keep SkinnedMesh; idle far neutrals skip limb anim; `CREEP_INST` + `b28.js` | done |
-| Later polish | More item-aware bot recipes; neutrals items + bot micro/combos | planned |
+| **Neutral items + bot micro ✅** | Camp-clear drops (3 tiers × 2 tokens, `h.neutral` slot, CN UI); bot HG dive/abort + Blink→setup + Force-save (`precast`/`teampush`/`teamexec`); `b29.js` | done |
 
 ## Suggested next steps (older notes)
-- **Items / UI / Roshan / jungle / courier / render polish:** batches 1–7 done. LAN replay / spectate / checkpoints done (B11 follow-ups). Indicators / feel done. Creep GPU instancing + LOD done. Next optional: neutrals items + bot micro/combos.
+- **Items / UI / Roshan / jungle / courier / render polish:** batches 1–7 done. LAN replay / spectate / checkpoints done (B11 follow-ups). Indicators / feel done. Creep GPU instancing + LOD done. Neutral items + bot HG/combo micro done. **User-approved polish order complete.**
 - **Sound (B9 follow-ups):** voice lines / recorded announcer, per-hero attack timbres, reverb in the Roshan pit, music.
 - **Teamwork (B10/B12 follow-ups):** item-aware combos (BKB → Black Hole, Blink → Eul's), dynamic ward spots; smoke/buyback/glyph/lane-farmer already in B12.
-- **Jungle (B8 follow-ups):** Aegis deny + Refresher Shard (batch 4); bots stacking + courier snipe + Tinker Rearm (batch 5); shared ally courier (batch 6). Still open: neutral item drops.
+- **Jungle (B8 follow-ups):** Aegis deny + Refresher Shard (batch 4); bots stacking + courier snipe + Tinker Rearm (batch 5); shared ally courier (batch 6); neutral item drops (B29).
 - **Audio:** Web Audio synth SFX (attacks, spell casts, crits, kills) and a mute toggle; still fully offline.
 - **Bots:** more item-aware combos (BKB → Black Hole); high-ground siege micro; dynamic ward spots.
 - **Perf:** ✅ batch 7 SkinnedMesh merge + shadow frustum; ✅ creep GPU InstancedMesh LOD (`creepinst.js`) for far melee/ranged. Still open: atlas LODs / hero impostors.

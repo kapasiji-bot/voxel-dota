@@ -24,6 +24,10 @@ function shardTaker(team) {
 function dropTaker(d, team) {
   if (d.item === 'aegis') return aegisTaker(team);
   if (d.item === 'refresher_shard') return shardTaker(team);
+  if (typeof isNeutralItem === 'function' && isNeutralItem(d.item)) {   // B29: prefer heroes without a neutral yet
+    return G.heroes.filter(h => h.team === team && !h.dead && h.bot && dst(h, d) < 28)
+      .sort((a, c) => (!!c.neutral) - (!!a.neutral) || c.level - a.level)[0] || null;
+  }
   return cheeseTaker(team);
 }
 function botLoot(h, b) {

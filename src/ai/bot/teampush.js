@@ -30,6 +30,15 @@ function pushTick(team, p, d, adv, mem) {
   const foes = knownEnemies(team, t.x, t.z, 24), won = aliveHeroes(1 - team).length <= aliveHeroes(team).length - 2;
   const bad = (mem.length <= 1 && G.time - p.t0 > 8) || (mem.length && groupHp(mem) < 0.3) || (!won && foes.length && groupPower(foes, t.x, t.z, 24) > groupPower(mem, t.x, t.z, 400) * 1.6);
   if (bad) return setPlan(team, 'retreat', { until: G.time + 8, from: t });
+  // B29 high-ground abort: need numbers + creep wave (or a won fight) before staying under T3/rax/ancient
+  if (isHighGround(t) && p.phase === 'siege' && !won) {
+    const near = mem.filter(h => dst(h, t) < 18).length;
+    const creeps = units.filter(c => !c.dead && c.team === team && isCreep(c) && dst(c, t) < 20).length;
+    if (near < 3 || (creeps < 2 && foes.length >= 2) || groupHp(mem) < 0.45) {
+      emit('teamHgAbort', { team, target: t.id, near, creeps, foes: foes.length });
+      return setPlan(team, 'retreat', { until: G.time + 10, from: t, why: 'hg' });
+    }
+  }
   if (won && p.phase === 'gather') { p.phase = 'siege'; emit('teamSiege', { team, target: t.id, n: mem.length, won: true }); }   // enemies dead: convert the won fight now
   if (p.phase === 'gather') {
     const here = mem.filter(h => Math.hypot(h.x - p.rally.x, h.z - p.rally.z) < 14).length;

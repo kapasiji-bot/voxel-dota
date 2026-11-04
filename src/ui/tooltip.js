@@ -33,12 +33,15 @@ function recipeTree(id, h, have, depth = 0) {
 }
 function itemTip(id, owned) {
   const D = ITEM_DEFS[id], h = G.player;
-  let s = `<div class="tt">${D.name}${D.en ? ` <span style="color:#aaa;font-weight:normal">${D.en}</span>` : ''}</div><div style="color:#ffd54f">价格：${D.cost} 金${!owned && h && D.parts && itemPrice(h, id) < D.cost ? `（你还需 ${itemPrice(h, id)} 金）` : ''}</div>`;
+  let s = `<div class="tt">${D.name}${D.en ? ` <span style="color:#aaa;font-weight:normal">${D.en}</span>` : ''}${D.neutral ? ' <span style="color:#ffcc80;font-weight:normal">·中立</span>' : ''}</div>`;
+  if (D.neutral) s += `<div style="color:#ffcc80">中立物品 · 第${D.tier || '?'}档 · 占据中立栏（键 7）</div>`;
+  else s += `<div style="color:#ffd54f">价格：${D.cost} 金${!owned && h && D.parts && itemPrice(h, id) < D.cost ? `（你还需 ${itemPrice(h, id)} 金）` : ''}</div>`;
   if (D.parts && !owned) { const have = h ? h.items.filter(Boolean).map(i => i.id).concat((h.stash || []).map(x => x.id)) : []; s += `<div class="rtree"><div style="color:#90caf9">配方（已有部件自动合成，抵扣价格）：</div>${recipeTree(id, h, have)}</div>`; }
   const up = !owned && Object.values(ITEM_DEFS).filter(x => (x.parts || []).includes(id));
   if (up && up.length) s += `<div class="tc">可合成：${up.map(x => x.name).join('、')}</div>`;
   if (!owned && !D.noShop) s += `<div class="tc" style="color:${D.shop === 'secret' ? '#ce93d8' : '#80cbc4'}">购买地点：${shopLocLabel(D)}</div>`;   // B8
-  return s + `<div>${D.desc}</div>${owned ? '<div class="tc">右键点击出售（返还 50%）</div>' : ''}`;
+  const ownHint = D.neutral ? '<div class="tc">右键丢弃到地上（无法出售）</div>' : '<div class="tc">右键点击出售（返还 50%）</div>';
+  return s + `<div>${D.desc}</div>${owned ? ownHint : ''}`;
 }
 function icoHTML(char, color, cls = '') { return `<div class="ico ${cls}" style="background:linear-gradient(135deg,${color},${shade(color, -0.45)})">${char}</div>`; }
 function shade(hex, f) { const c = new T.Color(hex); c.multiplyScalar(1 + f); return '#' + c.getHexString(); }

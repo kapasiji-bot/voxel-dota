@@ -31,6 +31,13 @@ function buildHUD() {
     bindTip(el, () => P.items[i] ? itemTip(P.items[i].id, true) : '<div class="tc">空物品栏</div>');
     ib.appendChild(el); hudEl.items.push({ el, icw: el.querySelector('.icw'), cdov: el.querySelector('.cdov'), cdtxt: el.querySelector('.cdtxt'), chg: el.querySelector('.chg'), id: undefined });
   }
+  { // B29 dedicated neutral slot (key 7)
+    const el = document.createElement('div'); el.className = 'slot nslot';
+    el.innerHTML = `<div class="icw" style="width:100%;height:100%"></div><div class="cdov"></div><div class="cdtxt" style="font-size:16px"></div><div class="key">7</div><div class="ntag">中立</div><div class="chg"></div>`;
+    el.addEventListener('mousedown', e => { e.stopPropagation(); if (e.button === 0) pressItem(6); else if (e.button === 2) { sellItem(6); hideTip(); } });
+    bindTip(el, () => P.neutral ? itemTip(P.neutral.id, true) : '<div class="tc">中立物品栏（野怪掉落）</div>');
+    ib.appendChild(el); hudEl.items.push({ el, icw: el.querySelector('.icw'), cdov: el.querySelector('.cdov'), cdtxt: el.querySelector('.cdtxt'), chg: el.querySelector('.chg'), id: undefined, neutral: true });
+  }
   buildShop();   // ui/shop.js
   hudEl.stats = $('stats'); hudEl.buffs = $('buffs');
   hudEl.hp = $('hpbar'); hudEl.mp = $('mpbar');
@@ -66,7 +73,9 @@ function updateHUD() {
     e.learn.classList.toggle('hidden', !(pts > 0 && U === P && canLearn(P, i)));
   });
   const invU = (U && U.items) ? U : P;   // B12: Spirit Bear (and other inv summons) show their own items
-  if (hudEl.invU !== invU || (hudEl.items && hudEl.items.length !== invU.items.length)) {
+  const wantN = !!(invU.isHero);
+  const wantLen = invU.items.length + (wantN ? 1 : 0);
+  if (hudEl.invU !== invU || (hudEl.items && hudEl.items.length !== wantLen)) {
     hudEl.invU = invU; const ib = $('items'); ib.innerHTML = ''; hudEl.items = [];
     for (let i = 0; i < invU.items.length; i++) {
       const el = document.createElement('div'); el.className = 'slot';
@@ -78,6 +87,13 @@ function updateHUD() {
       bindTip(el, () => invU.items[i] ? itemTip(invU.items[i].id, true) : '<div class="tc">空物品栏</div>');
       ib.appendChild(el); hudEl.items.push({ el, icw: el.querySelector('.icw'), cdov: el.querySelector('.cdov'), cdtxt: el.querySelector('.cdtxt'), chg: el.querySelector('.chg'), id: undefined });
     }
+    if (wantN) {
+      const el = document.createElement('div'); el.className = 'slot nslot';
+      el.innerHTML = `<div class="icw" style="width:100%;height:100%"></div><div class="cdov"></div><div class="cdtxt" style="font-size:16px"></div><div class="key">7</div><div class="ntag">中立</div><div class="chg"></div>`;
+      el.addEventListener('mousedown', e => { e.stopPropagation(); if (e.button === 0) pressItem(6); else if (e.button === 2) { sellItem(6); hideTip(); } });
+      bindTip(el, () => invU.neutral ? itemTip(invU.neutral.id, true) : '<div class="tc">中立物品栏（野怪掉落）</div>');
+      ib.appendChild(el); hudEl.items.push({ el, icw: el.querySelector('.icw'), cdov: el.querySelector('.cdov'), cdtxt: el.querySelector('.cdtxt'), chg: el.querySelector('.chg'), id: undefined, neutral: true });
+    }
   }
   invU.items.forEach((it, i) => {
     const e = hudEl.items[i], id = it ? it.id : null;
@@ -86,6 +102,13 @@ function updateHUD() {
     setT(e.cdtxt, it && it.cd > 0 ? String(Math.ceil(it.cd)) : '');
     setT(e.chg, it && (it.def.stack || it.id === 'bloodstone') ? String(it.charges || 0) : '');
   });
+  if (wantN && hudEl.items[6]) {
+    const e = hudEl.items[6], it = invU.neutral, id = it ? it.id : null;
+    if (e.id !== id) { e.id = id; e.icw.innerHTML = id ? icoHTML(ITEM_DEFS[id].icon, ITEM_DEFS[id].color) : ''; }
+    setS(e.cdov, 'background', cdBg(it && it.cd > 0 ? it.cd / ((it.def.active && it.def.active.cd) || 1) : 0));
+    setT(e.cdtxt, it && it.cd > 0 ? String(Math.ceil(it.cd)) : '');
+    setT(e.chg, '');
+  }
   updateGlyphHUD();
   if ((hudSlow -= 1) > 0) return; hudSlow = 6;
   const S = (U.def || P.def).stats, pr = S.primary, st = (k, n, g) => `<div><span class="${k === 'str' ? 'sa' : k === 'agi' ? 'sg' : 'si'}">${n}${pr === k ? '★' : ''}</span><b>${Math.floor(P[k])} <small style="color:#888">+${g}</small></b></div>`;
@@ -116,7 +139,7 @@ const HELP_HTML = `<div style="color:#ffd54f;font-size:16px;font-weight:bold;mar
 <b>Alt + Q/W/E/R</b>学习技能（或点击技能上方的“+”）<br>
 <b>A + 左键</b>攻击移动<br>
 <b>S</b>停止　　<b style="min-width:0">H</b>　原地待命<br>
-<b>1 - 6</b>使用物品栏物品（右键物品出售）<br>
+<b>1 - 6</b>使用物品栏物品（右键出售）　<b>7</b>中立物品（右键丢弃）<br>
 <b>B</b>打开 / 关闭商店（阵亡时 = 买活）　<b>G</b>防御符文<br>
 <b>T</b>战熊选中时移交物品；否则进入神杖/魔晶赠予瞄准（点友军，远处由信使运送）<br>
 <b>方向键 / 鼠标移到屏幕边缘</b>移动镜头<br>

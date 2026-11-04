@@ -13,8 +13,18 @@ function assignGank(team, d) {
   }
 }
 const inPlan = (h, p) => p.members && p.members.includes(h.id);
-// siege: allowed to fight / stand under the target's tower when ≥ 2 allied heroes are with us
-const teamDive = h => { const p = teamPlan(h.team); return p.mode === 'push' && p.phase === 'siege' && inPlan(h, p) && G.heroes.filter(a => a.team === h.team && !a.dead && dst(a, h) < 14).length >= 3; };
+// siege: allowed under the target's tower when ≥ 3 allies (HG needs 4 + creeps or a won fight) — B29 tightened
+const teamDive = h => {
+  const p = teamPlan(h.team);
+  if (!(p.mode === 'push' && p.phase === 'siege' && inPlan(h, p))) return false;
+  const n = G.heroes.filter(a => a.team === h.team && !a.dead && dst(a, h) < 14).length;
+  if (isHighGround(p.target)) {
+    const creeps = units.filter(c => !c.dead && c.team === h.team && isCreep(c) && dst(c, p.target) < 20).length;
+    const won = aliveHeroes(1 - h.team).length <= aliveHeroes(h.team).length - 2;
+    return n >= 4 && (creeps >= 2 || won);
+  }
+  return n >= 3;
+};
 function teamDest(h) { const p = teamPlan(h.team); if (!inPlan(h, p) || !p.target) return null; return p.mode === 'push' ? (p.phase === 'gather' ? p.rally : p.target) : p.mode === 'defend' ? p.target : null; }
 function botTeam(h, b, s) {
   const p = teamTick(h.team); if (h.bot === b && b.thinks % 5 === 0) assignGank(h.team, b.d);
@@ -29,6 +39,15 @@ function botTeam(h, b, s) {
   const dest = p.phase === 'gather' ? p.rally : p.target;
   if (dst(h, dest) > 55 && !s.foes.length && botTp(h, b, dest, 'group')) return 'tp';
   if (p.phase === 'gather') { botMove(h, p.rally.x + b.off * 2, p.rally.z - b.off * 2); return 'group'; }
+  // B29: Blink into HG/siege when the dive check passes and we are still outside
+  if (p.phase === 'siege' && p.target && !p.target.dead && teamDive(h)) {
+    const bl = itemSlot(h, 'blink');
+    if (bl >= 0 && h.items[bl].cd <= 0 && dst(h, p.target) > 10 && dst(h, p.target) < 24) {
+      useItem(h, bl, { x: p.target.x, z: p.target.z });
+      emit('botBlinkSiege', { unit: h.id, target: p.target.id });
+      return 'siege';
+    }
+  }
   if (botCastOnCreeps(h, b, s)) return 'siege';
   const c = s.ecreeps.filter(c => edgeDist(h, c) <= h.range + 2).sort((a, c2) => a.hp - c2.hp)[0];
   if (c && (h.proj || s.ecreeps.length >= 3)) botAttack(h, c); else botAttack(h, p.target);

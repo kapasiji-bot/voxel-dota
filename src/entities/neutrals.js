@@ -60,6 +60,11 @@ function neutralDeath(u, killer) {
     shareXP(1 - kh.team, u.x, u.z, 16, u.xp * XP_MULT);   // shareXP excludes the given team → only the killer's team
   }
   emit('neutralKill', { unit: u.id, type: u.nt, camp: u.camp ? u.camp.id : '', killer: kh ? kh.id : 0, team: kh ? kh.team : -1, gold: kh ? u.gold : 0 });
+  // B29: last camp unit → chance for a timed-tier neutral token at the corpse
+  if (u.camp && typeof tryNeutralDrop === 'function') {
+    const mates = (u.camp.units || []).filter(n => n !== u && !n.dead);
+    if (!mates.length) tryNeutralDrop(u.camp, kh, u.x, u.z);
+  }
   burst(u.x, 1, u.z, 10, ['#8d6e63', '#a1887f', '#ffd54f'], 3, 0.7, 0.25, 2);
   corpses.push({ u, t: 0 });
 }

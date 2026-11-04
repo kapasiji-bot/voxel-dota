@@ -41,8 +41,8 @@ function botItemActives(h, b, s, mode, target) {
   i = itemReady(h, id => id === 'force');
   if (i >= 0) {
     if (mode === 'retreat' && near(h, 7).length) { const sp = heroSpawn(h.team); h.facing = Math.atan2(sp.x - h.x, sp.z - h.z); return botItemUse(h, b, i, h); }
-    const a = s.allies.find(a => a.hp < a.maxHp * 0.3 && near(a, 6).length && a.bot && a.bot.retreat && dst(a, h) < 11);
-    if (a) return botItemUse(h, b, i, a);
+    const a = s.allies.find(a => a.hp < a.maxHp * 0.35 && dst(a, h) < 11 && (near(a, 6).length || enemyTowerAt(h.team, a.x, a.z, 0)));
+    if (a) { const sp = heroSpawn(h.team); a.facing = Math.atan2(sp.x - a.x, sp.z - a.z); emit('botForceSave', { unit: h.id, target: a.id }); return botItemUse(h, b, i, a); }
   }
   i = itemReady(h, isDagon);
   if (i >= 0) { const D = h.items[i].def, dmg = DAGON_DMG[(D.level || 1) - 1];

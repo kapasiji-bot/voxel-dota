@@ -66,7 +66,7 @@ function pressSkill(i) {
 }
 function invUnit() { const U = ctlActive(); return U && U.items ? U : G.player; }   // B12: bear inventory
 function pressItem(slot) {
-  const P = invUnit(), it = P.items[slot]; if (!it) return;
+  const P = invUnit(), it = (slot === 6 ? P.neutral : P.items[slot]); if (!it) return;
   const A = it.def.active;
   if (!A) { err('该物品没有主动效果'); return; }
   if (it.cd > 0) { err('物品冷却中'); return; }
@@ -114,7 +114,7 @@ addEventListener('keydown', e => {
   const P = G.player;
   const si = 'qwer'.indexOf(k);
   if (si >= 0 && k.length === 1) { if (e.altKey) learnSkill(si); else if (!G.paused) pressSkill(si); return; }
-  const ii = '123456'.indexOf(k);
+  const ii = '1234567'.indexOf(k);
   if (ii >= 0 && k.length === 1) { if (!G.paused) pressItem(ii); return; }
   switch (k) {
     case 'b': if (P && P.dead) pressBuyback(); else toggleShop(); break;

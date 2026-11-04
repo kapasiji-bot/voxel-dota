@@ -11,7 +11,7 @@ function abilityCtx(h, ab) { return { caster: h, ab, def: ab.def, lvl: ab.lvl, v
 // call a hook (onAttacked, onAbilityCast, ...) on every learned ability of a hero
 function fireHeroHook(h, hook, ...args) { if (!h.abilities) return; for (const ab of h.abilities) if (ab.lvl > 0 && ab.def[hook] && !(h.isIllusion && ab.def.noIllusion)) ab.def[hook](abilityCtx(h, ab), ...args); }
 // item passives: def.onAttackLand(ctx{caster, item, def}, target, dealt) — once per item id (unique)
-function fireItemHook(h, hook, ...args) { if (h.isIllusion) return; const seen = {}; for (const it of h.items) if (it && it.def[hook] && !seen[it.id]) { seen[it.id] = 1; it.def[hook]({ caster: h, item: it, def: it.def }, ...args); } }
+function fireItemHook(h, hook, ...args) { if (h.isIllusion) return; const seen = {}; const run = it => { if (it && it.def[hook] && !seen[it.id]) { seen[it.id] = 1; it.def[hook]({ caster: h, item: it, def: it.def }, ...args); } }; for (const it of h.items) run(it); if (h.neutral) run(h.neutral); }
 function applyCdReduc(h, cd) { return Math.max(0, (cd || 0) * (1 - (h.cdReduc || 0))); }
 function canCast(h, ab) {
   if (h.dead) return '英雄已阵亡';

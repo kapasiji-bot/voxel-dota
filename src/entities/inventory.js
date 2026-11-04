@@ -6,9 +6,14 @@ function newItem(h, id, n = 1) {
   const D = ITEM_DEFS[id];
   return { id, def: D, cd: D.heroCd && h && h.icd ? Math.max(0, (h.icd[id] || 0) - G.time) : 0, charges: D.stack ? n : 0 };
 }
-const freeSlotFor = (h, id) => (ITEM_DEFS[id].stack && h.items.some(i => i && i.id === id)) || h.items.indexOf(null) >= 0;
+const freeSlotFor = (h, id) => {
+  const D = ITEM_DEFS[id]; if (!D) return false;
+  if (D.neutral) return !!(h && h.isHero && !h.isIllusion);   // B29: dedicated neutral slot (always free / replaces)
+  return (D.stack && h.items.some(i => i && i.id === id)) || h.items.indexOf(null) >= 0;
+};
 function giveItem(h, id, n = 1) {
   const D = ITEM_DEFS[id]; if (!D) return '未知物品';
+  if (D.neutral) return giveNeutral(h, id);   // B29: h.neutral slot (entities/neutralitems.js)
   if (D.stack) { const it = h.items.find(i => i && i.id === id); if (it) { it.charges += n; return null; } }
   const slot = h.items.indexOf(null); if (slot < 0) return '物品栏已满';
   h.items[slot] = newItem(h, id, n); if (h.isHero) refreshHero(h); else refreshUnit(h);
@@ -55,6 +60,9 @@ function tickItemPassives(dt) {
   for (const h of G.heroes) if (!h.dead) fireItemHook(h, 'tick', 0.5);
 }
 function sellItem(slot, h = G.player) {
+  if (slot === 6 || slot === 'n') {   // B29: right-click neutral slot drops it (cannot sell)
+    const e = dropNeutral(h); if (e && h === G.player) err(e); return e;
+  }
   const it = h.items[slot]; if (!it) return '空物品栏';
   if (it.def.noSell) { if (h === G.player) err('该物品无法出售'); return '无法出售'; }
   if (!atShop(h)) { if (h === G.player) err('只能在基地商店出售物品'); return '不在商店'; }
@@ -78,7 +86,7 @@ function itemTargetError(h, A, t) {
 // target: {x,z} for point items, a unit for unit items, ignored otherwise. Returns null or error string.
 // Point items with a range (wards) walk into range first (order 'useItem'); def.active.clamp items (blink) clamp instead.
 function useItem(h, slot, target) {
-  const it = h.items[slot]; if (!it) return '空物品栏';
+  const it = (typeof invItem === 'function') ? invItem(h, slot) : h.items[slot]; if (!it) return '空物品栏';
   const D = it.def, A = D.active;
   if (!A) return '该物品没有主动效果';
   if (h.dead) return '英雄已阵亡';
@@ -102,7 +110,7 @@ function useItem(h, slot, target) {
   if (A.target === 'unit' && target && target.id && typeof trySpellBlock === 'function' && trySpellBlock(target, h, D.id)) {
     const cdB = typeof applyCdReduc === 'function' ? applyCdReduc(h, A.cd || 0) : (A.cd || 0);
     if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + cdB;
-    if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cdB; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = cdB;
+    if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cdB; } else { if (typeof setInvItem === 'function') setInvItem(h, slot, null); else h.items[slot] = null; refreshHero(h); } } else it.cd = cdB;
     return null;
   }
   if (A.onUse({ caster: h, item: it, def: D }, target) === false) return '无法使用';
@@ -110,7 +118,7 @@ function useItem(h, slot, target) {
   emit('itemUse', { unit: h.id, item: D.id, slot, target: target && target.id ? target.id : 0 });
   const cd = typeof applyCdReduc === 'function' ? applyCdReduc(h, A.cd || 0) : (A.cd || 0);
   if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + cd;
-  if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cd; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = cd;
+  if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cd; } else { if (typeof setInvItem === 'function') setInvItem(h, slot, null); else h.items[slot] = null; refreshHero(h); } } else it.cd = cd;
   return null;
 }
 // B12: move one inventory item to another unit that has an items array (Spirit Bear). Same team / ownership only.

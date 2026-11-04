@@ -106,6 +106,8 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 .bar em{position:absolute;right:6px;top:0;font-size:11px;line-height:14px;font-style:normal;color:#cfe}
 #ibox{width:200px;height:170px;padding:8px}
 #items{display:grid;grid-template-columns:repeat(3,58px);gap:5px}
+.slot.nslot{outline:1px solid #ffcc8044;box-shadow:inset 0 0 0 1px #ffcc8022}
+.slot .ntag{position:absolute;left:2px;bottom:2px;font-size:9px;color:#ffcc80;opacity:.85;pointer-events:none}
 .slot{width:58px;height:44px;background:#0c0f13;border:2px solid #000;position:relative;cursor:pointer}
 .slot .ico{width:100%;height:100%;font-size:20px;border:none}
 .slot .key{font-size:10px}
@@ -361,7 +363,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = '50e19e6022';
+const BUILD_ID = '41526a7249';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -1846,7 +1848,7 @@ function createHero(id, team = RAD, o = {}) {
   const ring = new T.Mesh(new T.RingGeometry(0.95, 1.2, 32), new T.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.8, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; model.add(ring);
   const h = addUnit({ kind: 'hero', isHero: true, name: d.name, team, x: heroSpawn(team).x + (o.slot || 0) * 1.6, z: heroSpawn(team).z, radius: s.radius, height: s.height, def: d, level: 1, xp: 0, gold: 600, goldF: 0,
-    abilities: d.abilities.map(a => ({ def: a, lvl: 0, cd: 0, cdMax: 1 })), items: [null, null, null, null, null, null],
+    abilities: d.abilities.map(a => ({ def: a, lvl: 0, cd: 0, cdMax: 1 })), items: [null, null, null, null, null, null], neutral: null,
     range: s.range, atkPoint: s.atkPoint, backswing: s.backswing, proj: s.proj, projColor: s.projColor, magicRes: 0.25,
     order: { type: 'idle' }, path: null, repathT: 0, kills: 0, deaths: 0, assists: 0, lh: 0, dn: 0, respawn: 0, facing: team === RAD ? Math.PI * 0.75 : -Math.PI * 0.25, streak: 0, dmgBy: {}, isBot: !!o.bot, ringColor, ringMesh: ring }, model);
   refreshHero(h); h.hp = h.maxHp; h.mana = h.maxMana;
@@ -1855,11 +1857,13 @@ function createHero(id, team = RAD, o = {}) {
 }
 function heroProps(h) {
   const P = gatherProps(h), seen = {};
-  for (const it of h.items) if (it) {
-    const p = it.def.props; if (!p) continue;
-    if (it.def.unique) { const g = it.def.uniqueGroup || it.def.id; if (seen[g]) continue; seen[g] = 1; }
+  const applyIt = it => {
+    const p = it.def.props; if (!p) return;
+    if (it.def.unique) { const g = it.def.uniqueGroup || it.def.id; if (seen[g]) return; seen[g] = 1; }
     for (const k in p) P[k] = (P[k] || 0) + p[k];
-  }
+  };
+  for (const it of h.items) if (it) applyIt(it);
+  if (h.neutral) applyIt(h.neutral);   // B29 neutral slot props
   for (const a of h.abilities) if (a.lvl > 0 && a.def.passiveProps) { const p = a.def.passiveProps(abilityCtx(h, a)); for (const k in p) P[k] = (P[k] || 0) + p[k]; }
   return P;
 }
@@ -1924,6 +1928,7 @@ function respawnHero(h) {
 function updateHeroTimers(h, dt) {
   for (const s of h.abilities) if (s.cd > 0) s.cd = Math.max(0, s.cd - dt);
   for (const it of h.items) if (it && it.cd > 0) it.cd = Math.max(0, it.cd - dt);
+  if (h.neutral && h.neutral.cd > 0) h.neutral.cd = Math.max(0, h.neutral.cd - dt);   // B29
   if (h.icd) for (const it of h.items) if (it && it.def.heroCd) it.cd = Math.max(0, (h.icd[it.id] || 0) - G.time);
   if (h.dead) {
     h.respawn -= dt; if (h === G.player && typeof updateDeathUI === 'function') updateDeathUI(h); else if (h === G.player) setT($('deathTxt'), `你已阵亡 —— ${Math.ceil(h.respawn)} 秒后复活`);
@@ -1945,9 +1950,14 @@ function newItem(h, id, n = 1) {
   const D = ITEM_DEFS[id];
   return { id, def: D, cd: D.heroCd && h && h.icd ? Math.max(0, (h.icd[id] || 0) - G.time) : 0, charges: D.stack ? n : 0 };
 }
-const freeSlotFor = (h, id) => (ITEM_DEFS[id].stack && h.items.some(i => i && i.id === id)) || h.items.indexOf(null) >= 0;
+const freeSlotFor = (h, id) => {
+  const D = ITEM_DEFS[id]; if (!D) return false;
+  if (D.neutral) return !!(h && h.isHero && !h.isIllusion);   // B29: dedicated neutral slot (always free / replaces)
+  return (D.stack && h.items.some(i => i && i.id === id)) || h.items.indexOf(null) >= 0;
+};
 function giveItem(h, id, n = 1) {
   const D = ITEM_DEFS[id]; if (!D) return '未知物品';
+  if (D.neutral) return giveNeutral(h, id);   // B29: h.neutral slot (entities/neutralitems.js)
   if (D.stack) { const it = h.items.find(i => i && i.id === id); if (it) { it.charges += n; return null; } }
   const slot = h.items.indexOf(null); if (slot < 0) return '物品栏已满';
   h.items[slot] = newItem(h, id, n); if (h.isHero) refreshHero(h); else refreshUnit(h);
@@ -1994,6 +2004,9 @@ function tickItemPassives(dt) {
   for (const h of G.heroes) if (!h.dead) fireItemHook(h, 'tick', 0.5);
 }
 function sellItem(slot, h = G.player) {
+  if (slot === 6 || slot === 'n') {   // B29: right-click neutral slot drops it (cannot sell)
+    const e = dropNeutral(h); if (e && h === G.player) err(e); return e;
+  }
   const it = h.items[slot]; if (!it) return '空物品栏';
   if (it.def.noSell) { if (h === G.player) err('该物品无法出售'); return '无法出售'; }
   if (!atShop(h)) { if (h === G.player) err('只能在基地商店出售物品'); return '不在商店'; }
@@ -2017,7 +2030,7 @@ function itemTargetError(h, A, t) {
 // target: {x,z} for point items, a unit for unit items, ignored otherwise. Returns null or error string.
 // Point items with a range (wards) walk into range first (order 'useItem'); def.active.clamp items (blink) clamp instead.
 function useItem(h, slot, target) {
-  const it = h.items[slot]; if (!it) return '空物品栏';
+  const it = (typeof invItem === 'function') ? invItem(h, slot) : h.items[slot]; if (!it) return '空物品栏';
   const D = it.def, A = D.active;
   if (!A) return '该物品没有主动效果';
   if (h.dead) return '英雄已阵亡';
@@ -2041,7 +2054,7 @@ function useItem(h, slot, target) {
   if (A.target === 'unit' && target && target.id && typeof trySpellBlock === 'function' && trySpellBlock(target, h, D.id)) {
     const cdB = typeof applyCdReduc === 'function' ? applyCdReduc(h, A.cd || 0) : (A.cd || 0);
     if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + cdB;
-    if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cdB; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = cdB;
+    if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cdB; } else { if (typeof setInvItem === 'function') setInvItem(h, slot, null); else h.items[slot] = null; refreshHero(h); } } else it.cd = cdB;
     return null;
   }
   if (A.onUse({ caster: h, item: it, def: D }, target) === false) return '无法使用';
@@ -2049,7 +2062,7 @@ function useItem(h, slot, target) {
   emit('itemUse', { unit: h.id, item: D.id, slot, target: target && target.id ? target.id : 0 });
   const cd = typeof applyCdReduc === 'function' ? applyCdReduc(h, A.cd || 0) : (A.cd || 0);
   if (D.heroCd) (h.icd = h.icd || {})[D.id] = G.time + cd;
-  if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cd; } else { h.items[slot] = null; refreshHero(h); } } else it.cd = cd;
+  if (D.consumable) { if (D.stack && it.charges > 1) { it.charges--; it.cd = cd; } else { if (typeof setInvItem === 'function') setInvItem(h, slot, null); else h.items[slot] = null; refreshHero(h); } } else it.cd = cd;
   return null;
 }
 // B12: move one inventory item to another unit that has an items array (Spirit Bear). Same team / ownership only.
@@ -2389,6 +2402,11 @@ function neutralDeath(u, killer) {
     shareXP(1 - kh.team, u.x, u.z, 16, u.xp * XP_MULT);   // shareXP excludes the given team → only the killer's team
   }
   emit('neutralKill', { unit: u.id, type: u.nt, camp: u.camp ? u.camp.id : '', killer: kh ? kh.id : 0, team: kh ? kh.team : -1, gold: kh ? u.gold : 0 });
+  // B29: last camp unit → chance for a timed-tier neutral token at the corpse
+  if (u.camp && typeof tryNeutralDrop === 'function') {
+    const mates = (u.camp.units || []).filter(n => n !== u && !n.dead);
+    if (!mates.length) tryNeutralDrop(u.camp, kh, u.x, u.z);
+  }
   burst(u.x, 1, u.z, 10, ['#8d6e63', '#a1887f', '#ffd54f'], 3, 0.7, 0.25, 2);
   corpses.push({ u, t: 0 });
 }
@@ -2550,6 +2568,67 @@ function aegisSave(u) {
   emit('aegisUsed', { unit: u.id });
   msg(`${heroLabel(u)} 的不朽之守护生效——${AEGIS_REVIVE} 秒后原地复活！`, '#ffca28');
   return true;
+}
+
+// ===== entities/neutralitems.js =====
+// entities/neutralitems.js — B29: camp-clear neutral item drops + dedicated h.neutral slot helpers.
+// Last living camp unit's death may spawn a tiered token at the corpse (chance by camp kind, tier by game time).
+// Heroes carry at most one neutral (replacing drops the old one on the ground). Slot index 6 in useItem/HUD.
+const NEUTRAL_DROP_CHANCE = { small: 0.18, medium: 0.26, large: 0.34, ancient: 0.48 };
+const NEUTRAL_POOL = {
+  1: ['n_hobbit', 'n_armor'],
+  2: ['n_swift', 'n_prism'],
+  3: ['n_vambrace', 'n_mirror'],
+};
+const NEUTRAL_TIER_AT = t => (t < 7 * 60 ? 0 : t < 17 * 60 ? 1 : t < 27 * 60 ? 2 : 3);
+const isNeutralItem = id => !!(ITEM_DEFS[id] && ITEM_DEFS[id].neutral);
+const invItem = (h, slot) => (slot === 6 || slot === 'n' ? h.neutral : h.items[slot]) || null;
+function setInvItem(h, slot, it) {
+  if (slot === 6 || slot === 'n') h.neutral = it;
+  else h.items[slot] = it;
+}
+function giveNeutral(h, id) {
+  if (!h || !h.isHero || h.isIllusion) return '无法携带中立物品';
+  const D = ITEM_DEFS[id]; if (!D || !D.neutral) return '不是中立物品';
+  if (h.neutral) spawnDrop(h.neutral.id, h.x + rnd(-0.6, 0.6), h.z + rnd(-0.6, 0.6));
+  h.neutral = newItem(h, id);
+  refreshHero(h);
+  emit('neutralPickup', { unit: h.id, item: id, tier: D.tier || 0 });
+  return null;
+}
+function dropNeutral(h = G.player) {
+  if (!h || !h.neutral) return '没有中立物品';
+  const id = h.neutral.id;
+  spawnDrop(id, h.x, h.z); h.neutral = null; refreshHero(h);
+  emit('neutralDrop', { unit: h.id, item: id });
+  if (h === G.player) msg(`丢弃了 ${ITEM_DEFS[id].name}`, '#bcaaa4');
+  return null;
+}
+function pickNeutralId(tier, prefer) {
+  const pool = NEUTRAL_POOL[tier]; if (!pool || !pool.length) return null;
+  if (prefer && pool.includes(prefer)) return prefer;
+  return pool[(Math.random() * pool.length) | 0];
+}
+function tryNeutralDrop(camp, killer, x, z) {
+  if (!camp) return null;
+  const size = camp.size || 'medium';
+  const chance = NEUTRAL_DROP_CHANCE[size] || 0.2;
+  const tier = NEUTRAL_TIER_AT(G.time);
+  if (!tier) return null;
+  if (Math.random() > chance) return null;
+  const id = pickNeutralId(tier);
+  if (!id) return null;
+  const d = spawnDrop(id, x + rnd(-0.4, 0.4), z + rnd(-0.4, 0.4));
+  emit('neutralItemDrop', { item: id, tier, camp: camp.id, kind: camp.kind, size, killer: killer ? killer.id : 0, x, z });
+  if (killer && killer === G.player) msg(`野怪掉落了中立物品：${ITEM_DEFS[id].name}`, '#ffcc80');
+  return d;
+}
+// force a drop for tests / debug (ignores chance; uses current tier unless forced)
+function forceNeutralDrop(x, z, id) {
+  const tier = id ? (ITEM_DEFS[id] && ITEM_DEFS[id].tier) || NEUTRAL_TIER_AT(G.time) : NEUTRAL_TIER_AT(Math.max(G.time, 7 * 60));
+  const pick = id || pickNeutralId(tier || 1);
+  if (!pick) return null;
+  return spawnDrop(pick, x, z);
 }
 
 // ===== entities/courier.js =====
@@ -3028,7 +3107,7 @@ function abilityCtx(h, ab) { return { caster: h, ab, def: ab.def, lvl: ab.lvl, v
 // call a hook (onAttacked, onAbilityCast, ...) on every learned ability of a hero
 function fireHeroHook(h, hook, ...args) { if (!h.abilities) return; for (const ab of h.abilities) if (ab.lvl > 0 && ab.def[hook] && !(h.isIllusion && ab.def.noIllusion)) ab.def[hook](abilityCtx(h, ab), ...args); }
 // item passives: def.onAttackLand(ctx{caster, item, def}, target, dealt) — once per item id (unique)
-function fireItemHook(h, hook, ...args) { if (h.isIllusion) return; const seen = {}; for (const it of h.items) if (it && it.def[hook] && !seen[it.id]) { seen[it.id] = 1; it.def[hook]({ caster: h, item: it, def: it.def }, ...args); } }
+function fireItemHook(h, hook, ...args) { if (h.isIllusion) return; const seen = {}; const run = it => { if (it && it.def[hook] && !seen[it.id]) { seen[it.id] = 1; it.def[hook]({ caster: h, item: it, def: it.def }, ...args); } }; for (const it of h.items) run(it); if (h.neutral) run(h.neutral); }
 function applyCdReduc(h, cd) { return Math.max(0, (cd || 0) * (1 - (h.cdReduc || 0))); }
 function canCast(h, ab) {
   if (h.dead) return '英雄已阵亡';
@@ -3956,8 +4035,8 @@ function botItemActives(h, b, s, mode, target) {
   i = itemReady(h, id => id === 'force');
   if (i >= 0) {
     if (mode === 'retreat' && near(h, 7).length) { const sp = heroSpawn(h.team); h.facing = Math.atan2(sp.x - h.x, sp.z - h.z); return botItemUse(h, b, i, h); }
-    const a = s.allies.find(a => a.hp < a.maxHp * 0.3 && near(a, 6).length && a.bot && a.bot.retreat && dst(a, h) < 11);
-    if (a) return botItemUse(h, b, i, a);
+    const a = s.allies.find(a => a.hp < a.maxHp * 0.35 && dst(a, h) < 11 && (near(a, 6).length || enemyTowerAt(h.team, a.x, a.z, 0)));
+    if (a) { const sp = heroSpawn(h.team); a.facing = Math.atan2(sp.x - a.x, sp.z - a.z); emit('botForceSave', { unit: h.id, target: a.id }); return botItemUse(h, b, i, a); }
   }
   i = itemReady(h, isDagon);
   if (i >= 0) { const D = h.items[i].def, dmg = DAGON_DMG[(D.level || 1) - 1];
@@ -4363,18 +4442,34 @@ function botUseItems(h, b, s, mode, target) {
   if (bk >= 0 && h.items[bk].cd <= 0 && mode === 'fight' && s.foes.filter(f => dst(f, h) < 12).length >= 2) { useItem(h, bk, null); return true; }
   const bl = itemSlot(h, 'blink');
   if (bl >= 0 && h.items[bl].cd <= 0) {
-    if (mode === 'fight' && target && !h.proj && dst(h, target) > 7 && dst(h, target) < 23 && s.hpPct > 0.5 && !enemyTowerAt(h.team, target.x, target.z, 0)) { useItem(h, bl, { x: target.x, z: target.z }); return true; }
+    if (mode === 'fight' && target && !h.proj && dst(h, target) > 7 && dst(h, target) < 23 && s.hpPct > 0.5 && !enemyTowerAt(h.team, target.x, target.z, 0)) {
+      useItem(h, bl, { x: target.x, z: target.z }); b.blinkInit = G.time; return true;   // B29: Blink→setup
+    }
     if (mode === 'retreat' && s.foes.some(f => dst(f, h) < 8)) {
       const sp = heroSpawn(h.team), d = AB.dir(h, sp); useItem(h, bl, { x: h.x + d.x * 22, z: h.z + d.z * 22 });
       b.blinkEsc = G.time; return true;   // B13: mark for Eul's / Force follow-up
     }
   }
   // B13 Blink→Eul's / Force Staff escape: after a blink retreat, if still chased, cyclone self or force toward base
-  if (mode === 'retreat' && b.blinkEsc && G.time - b.blinkEsc < 1.8 && s.foes.some(f => dst(f, h) < 9)) {
+  if (mode === 'retreat' && b.blinkEsc != null && G.time - b.blinkEsc < 1.8 && s.foes.some(f => dst(f, h) < 9)) {
     const ei = itemReady(h, id => id === 'euls');
-    if (ei >= 0) { b.blinkEsc = 0; return botItemUse(h, b, ei, h); }
+    if (ei >= 0) { b.blinkEsc = null; return botItemUse(h, b, ei, h); }
     const fi = itemReady(h, id => id === 'force');
-    if (fi >= 0) { const sp = heroSpawn(h.team); h.facing = Math.atan2(sp.x - h.x, sp.z - h.z); b.blinkEsc = 0; return botItemUse(h, b, fi, h); }
+    if (fi >= 0) { const sp = heroSpawn(h.team); h.facing = Math.atan2(sp.x - h.x, sp.z - h.z); b.blinkEsc = null; return botItemUse(h, b, fi, h); }
+  }
+  // B29 Blink→Eul/Force setup after fight blink
+  if (mode === 'fight' && botBlinkSetup(h, b, target)) return true;
+  // B29 Force-save ally under tower / retreating
+  if ((mode === 'fight' || mode === 'retreat' || mode === 'siege') && botForceSave(h, b)) return true;
+  // B29 neutral-slot actives (escape / fight)
+  if (h.neutral && h.neutral.def.active && h.neutral.cd <= 0) {
+    const nid = h.neutral.id;
+    if (mode === 'retreat' && s.foes.some(f => dst(f, h) < 10) && (nid === 'n_swift' || nid === 'n_prism' || nid === 'n_mirror')) {
+      if (!useItem(h, 6, null)) { (b.itemUses = b.itemUses || {})[nid] = (b.itemUses[nid] || 0) + 1; return true; }
+    }
+    if (mode === 'fight' && nid === 'n_mirror' && s.foes.filter(f => dst(f, h) < 11).length >= 2) {
+      if (!useItem(h, 6, null)) { (b.itemUses = b.itemUses || {})[nid] = (b.itemUses[nid] || 0) + 1; return true; }
+    }
   }
   return botItemActives(h, b, s, mode, target);   // ai/bot/actives.js: Mek, Pipe, Glimmer, Eul's, Force Staff, Dagon, Scythe
 }
@@ -4406,6 +4501,10 @@ function shardTaker(team) {
 function dropTaker(d, team) {
   if (d.item === 'aegis') return aegisTaker(team);
   if (d.item === 'refresher_shard') return shardTaker(team);
+  if (typeof isNeutralItem === 'function' && isNeutralItem(d.item)) {   // B29: prefer heroes without a neutral yet
+    return G.heroes.filter(h => h.team === team && !h.dead && h.bot && dst(h, d) < 28)
+      .sort((a, c) => (!!c.neutral) - (!!a.neutral) || c.level - a.level)[0] || null;
+  }
   return cheeseTaker(team);
 }
 function botLoot(h, b) {
@@ -4584,8 +4683,9 @@ function botLane(h, b, s) {
 }
 
 // ===== ai/bot/precast.js =====
-// ai/bot/precast.js — B13 item-aware prep: pop BKB before channel ults (Black Hole / Death Ward / Freezing Field), and
-// skip unit-target spells into an enemy with Lotus Echo Shell / spell reflect. Used by combos.js, ults.js, abilities.js.
+// ai/bot/precast.js — B13/B29 item-aware prep: pop BKB before channel ults (Black Hole / Death Ward / Freezing Field),
+// skip unit-target into Lotus/Linken, Blink→Eul/Force escape + initiate setup, Force-save allies under towers.
+// Used by combos.js, ults.js, abilities.js, items.js, teamexec.js.
 function needsBkbChannel(ab) {
   if (!ab || !ab.def) return false;
   const d = ab.def, ai = d.ai || {};
@@ -4603,6 +4703,41 @@ function botPopBkb(h, b, why) {
 function foeHasSpellBlock(f) {
   return !!(f && !f.dead && (hasState(f, 'reflect') || getMod(f, 'lotus') || (typeof linkenSlot === 'function' && linkenSlot(f) >= 0 && !(f.items[linkenSlot(f)].cd > 0))));
 }
+// B29: Force-Staff an ally out from under an enemy tower (face them toward fountain first)
+function botForceSave(h, b) {
+  const fi = itemSlot(h, 'force');
+  if (fi < 0 || h.items[fi].cd > 0 || h.mana < (h.items[fi].def.active.mana || 0)) return false;
+  for (const a of G.heroes) {
+    if (a.team !== h.team || a.dead || a === h || dst(a, h) > 11) continue;
+    if (a.hp / a.maxHp > 0.42) continue;
+    if (!enemyTowerAt(h.team, a.x, a.z, 0) && !(a.bot && a.bot.retreat && G.heroes.some(e => e.team !== h.team && !e.dead && dst(e, a) < 7))) continue;
+    const sp = heroSpawn(h.team);
+    a.facing = Math.atan2(sp.x - a.x, sp.z - a.z);
+    if (botItemUse(h, b, fi, a)) { emit('botForceSave', { unit: h.id, target: a.id }); return true; }
+  }
+  return false;
+}
+// B29: after a fight blink, cyclone the target or Force self toward them (Blink→setup chain)
+function botBlinkSetup(h, b, target) {
+  if (b.blinkInit == null || G.time - b.blinkInit > 1.6 || !target || target.dead) return false;
+  if (foeHasSpellBlock(target) || hasState(target, 'magicImmune')) { b.blinkInit = null; return false; }
+  const ei = itemReady(h, id => id === 'euls');
+  if (ei >= 0 && dst(h, target) < 12) {
+    b.blinkInit = null;
+    emit('botBlinkEul', { unit: h.id, target: target.id });
+    return botItemUse(h, b, ei, target);
+  }
+  const fi = itemReady(h, id => id === 'force');
+  if (fi >= 0 && dst(h, target) < 11) {
+    h.facing = Math.atan2(target.x - h.x, target.z - h.z);
+    b.blinkInit = null;
+    emit('botBlinkForce', { unit: h.id, target: target.id });
+    return botItemUse(h, b, fi, h);
+  }
+  return false;
+}
+// B29 high-ground structure?
+const isHighGround = t => !!(t && (t.tier >= 3 || t.kind === 'barracks' || t.kind === 'ancient'));
 
 // ===== ai/bot/sense.js =====
 // ai/bot/sense.js — perception for bots: nearby heroes/creeps/towers, lane progress, power estimates.
@@ -4877,8 +5012,18 @@ function assignGank(team, d) {
   }
 }
 const inPlan = (h, p) => p.members && p.members.includes(h.id);
-// siege: allowed to fight / stand under the target's tower when ≥ 2 allied heroes are with us
-const teamDive = h => { const p = teamPlan(h.team); return p.mode === 'push' && p.phase === 'siege' && inPlan(h, p) && G.heroes.filter(a => a.team === h.team && !a.dead && dst(a, h) < 14).length >= 3; };
+// siege: allowed under the target's tower when ≥ 3 allies (HG needs 4 + creeps or a won fight) — B29 tightened
+const teamDive = h => {
+  const p = teamPlan(h.team);
+  if (!(p.mode === 'push' && p.phase === 'siege' && inPlan(h, p))) return false;
+  const n = G.heroes.filter(a => a.team === h.team && !a.dead && dst(a, h) < 14).length;
+  if (isHighGround(p.target)) {
+    const creeps = units.filter(c => !c.dead && c.team === h.team && isCreep(c) && dst(c, p.target) < 20).length;
+    const won = aliveHeroes(1 - h.team).length <= aliveHeroes(h.team).length - 2;
+    return n >= 4 && (creeps >= 2 || won);
+  }
+  return n >= 3;
+};
 function teamDest(h) { const p = teamPlan(h.team); if (!inPlan(h, p) || !p.target) return null; return p.mode === 'push' ? (p.phase === 'gather' ? p.rally : p.target) : p.mode === 'defend' ? p.target : null; }
 function botTeam(h, b, s) {
   const p = teamTick(h.team); if (h.bot === b && b.thinks % 5 === 0) assignGank(h.team, b.d);
@@ -4893,6 +5038,15 @@ function botTeam(h, b, s) {
   const dest = p.phase === 'gather' ? p.rally : p.target;
   if (dst(h, dest) > 55 && !s.foes.length && botTp(h, b, dest, 'group')) return 'tp';
   if (p.phase === 'gather') { botMove(h, p.rally.x + b.off * 2, p.rally.z - b.off * 2); return 'group'; }
+  // B29: Blink into HG/siege when the dive check passes and we are still outside
+  if (p.phase === 'siege' && p.target && !p.target.dead && teamDive(h)) {
+    const bl = itemSlot(h, 'blink');
+    if (bl >= 0 && h.items[bl].cd <= 0 && dst(h, p.target) > 10 && dst(h, p.target) < 24) {
+      useItem(h, bl, { x: p.target.x, z: p.target.z });
+      emit('botBlinkSiege', { unit: h.id, target: p.target.id });
+      return 'siege';
+    }
+  }
   if (botCastOnCreeps(h, b, s)) return 'siege';
   const c = s.ecreeps.filter(c => edgeDist(h, c) <= h.range + 2).sort((a, c2) => a.hp - c2.hp)[0];
   if (c && (h.proj || s.ecreeps.length >= 3)) botAttack(h, c); else botAttack(h, p.target);
@@ -4932,6 +5086,15 @@ function pushTick(team, p, d, adv, mem) {
   const foes = knownEnemies(team, t.x, t.z, 24), won = aliveHeroes(1 - team).length <= aliveHeroes(team).length - 2;
   const bad = (mem.length <= 1 && G.time - p.t0 > 8) || (mem.length && groupHp(mem) < 0.3) || (!won && foes.length && groupPower(foes, t.x, t.z, 24) > groupPower(mem, t.x, t.z, 400) * 1.6);
   if (bad) return setPlan(team, 'retreat', { until: G.time + 8, from: t });
+  // B29 high-ground abort: need numbers + creep wave (or a won fight) before staying under T3/rax/ancient
+  if (isHighGround(t) && p.phase === 'siege' && !won) {
+    const near = mem.filter(h => dst(h, t) < 18).length;
+    const creeps = units.filter(c => !c.dead && c.team === team && isCreep(c) && dst(c, t) < 20).length;
+    if (near < 3 || (creeps < 2 && foes.length >= 2) || groupHp(mem) < 0.45) {
+      emit('teamHgAbort', { team, target: t.id, near, creeps, foes: foes.length });
+      return setPlan(team, 'retreat', { until: G.time + 10, from: t, why: 'hg' });
+    }
+  }
   if (won && p.phase === 'gather') { p.phase = 'siege'; emit('teamSiege', { team, target: t.id, n: mem.length, won: true }); }   // enemies dead: convert the won fight now
   if (p.phase === 'gather') {
     const here = mem.filter(h => Math.hypot(h.x - p.rally.x, h.z - p.rally.z) < 14).length;
@@ -5304,7 +5467,7 @@ function pressSkill(i) {
 }
 function invUnit() { const U = ctlActive(); return U && U.items ? U : G.player; }   // B12: bear inventory
 function pressItem(slot) {
-  const P = invUnit(), it = P.items[slot]; if (!it) return;
+  const P = invUnit(), it = (slot === 6 ? P.neutral : P.items[slot]); if (!it) return;
   const A = it.def.active;
   if (!A) { err('该物品没有主动效果'); return; }
   if (it.cd > 0) { err('物品冷却中'); return; }
@@ -5352,7 +5515,7 @@ addEventListener('keydown', e => {
   const P = G.player;
   const si = 'qwer'.indexOf(k);
   if (si >= 0 && k.length === 1) { if (e.altKey) learnSkill(si); else if (!G.paused) pressSkill(si); return; }
-  const ii = '123456'.indexOf(k);
+  const ii = '1234567'.indexOf(k);
   if (ii >= 0 && k.length === 1) { if (!G.paused) pressItem(ii); return; }
   switch (k) {
     case 'b': if (P && P.dead) pressBuyback(); else toggleShop(); break;
@@ -5715,12 +5878,15 @@ function recipeTree(id, h, have, depth = 0) {
 }
 function itemTip(id, owned) {
   const D = ITEM_DEFS[id], h = G.player;
-  let s = `<div class="tt">${D.name}${D.en ? ` <span style="color:#aaa;font-weight:normal">${D.en}</span>` : ''}</div><div style="color:#ffd54f">价格：${D.cost} 金${!owned && h && D.parts && itemPrice(h, id) < D.cost ? `（你还需 ${itemPrice(h, id)} 金）` : ''}</div>`;
+  let s = `<div class="tt">${D.name}${D.en ? ` <span style="color:#aaa;font-weight:normal">${D.en}</span>` : ''}${D.neutral ? ' <span style="color:#ffcc80;font-weight:normal">·中立</span>' : ''}</div>`;
+  if (D.neutral) s += `<div style="color:#ffcc80">中立物品 · 第${D.tier || '?'}档 · 占据中立栏（键 7）</div>`;
+  else s += `<div style="color:#ffd54f">价格：${D.cost} 金${!owned && h && D.parts && itemPrice(h, id) < D.cost ? `（你还需 ${itemPrice(h, id)} 金）` : ''}</div>`;
   if (D.parts && !owned) { const have = h ? h.items.filter(Boolean).map(i => i.id).concat((h.stash || []).map(x => x.id)) : []; s += `<div class="rtree"><div style="color:#90caf9">配方（已有部件自动合成，抵扣价格）：</div>${recipeTree(id, h, have)}</div>`; }
   const up = !owned && Object.values(ITEM_DEFS).filter(x => (x.parts || []).includes(id));
   if (up && up.length) s += `<div class="tc">可合成：${up.map(x => x.name).join('、')}</div>`;
   if (!owned && !D.noShop) s += `<div class="tc" style="color:${D.shop === 'secret' ? '#ce93d8' : '#80cbc4'}">购买地点：${shopLocLabel(D)}</div>`;   // B8
-  return s + `<div>${D.desc}</div>${owned ? '<div class="tc">右键点击出售（返还 50%）</div>' : ''}`;
+  const ownHint = D.neutral ? '<div class="tc">右键丢弃到地上（无法出售）</div>' : '<div class="tc">右键点击出售（返还 50%）</div>';
+  return s + `<div>${D.desc}</div>${owned ? ownHint : ''}`;
 }
 function icoHTML(char, color, cls = '') { return `<div class="ico ${cls}" style="background:linear-gradient(135deg,${color},${shade(color, -0.45)})">${char}</div>`; }
 function shade(hex, f) { const c = new T.Color(hex); c.multiplyScalar(1 + f); return '#' + c.getHexString(); }
@@ -5760,6 +5926,13 @@ function buildHUD() {
     bindTip(el, () => P.items[i] ? itemTip(P.items[i].id, true) : '<div class="tc">空物品栏</div>');
     ib.appendChild(el); hudEl.items.push({ el, icw: el.querySelector('.icw'), cdov: el.querySelector('.cdov'), cdtxt: el.querySelector('.cdtxt'), chg: el.querySelector('.chg'), id: undefined });
   }
+  { // B29 dedicated neutral slot (key 7)
+    const el = document.createElement('div'); el.className = 'slot nslot';
+    el.innerHTML = `<div class="icw" style="width:100%;height:100%"></div><div class="cdov"></div><div class="cdtxt" style="font-size:16px"></div><div class="key">7</div><div class="ntag">中立</div><div class="chg"></div>`;
+    el.addEventListener('mousedown', e => { e.stopPropagation(); if (e.button === 0) pressItem(6); else if (e.button === 2) { sellItem(6); hideTip(); } });
+    bindTip(el, () => P.neutral ? itemTip(P.neutral.id, true) : '<div class="tc">中立物品栏（野怪掉落）</div>');
+    ib.appendChild(el); hudEl.items.push({ el, icw: el.querySelector('.icw'), cdov: el.querySelector('.cdov'), cdtxt: el.querySelector('.cdtxt'), chg: el.querySelector('.chg'), id: undefined, neutral: true });
+  }
   buildShop();   // ui/shop.js
   hudEl.stats = $('stats'); hudEl.buffs = $('buffs');
   hudEl.hp = $('hpbar'); hudEl.mp = $('mpbar');
@@ -5795,7 +5968,9 @@ function updateHUD() {
     e.learn.classList.toggle('hidden', !(pts > 0 && U === P && canLearn(P, i)));
   });
   const invU = (U && U.items) ? U : P;   // B12: Spirit Bear (and other inv summons) show their own items
-  if (hudEl.invU !== invU || (hudEl.items && hudEl.items.length !== invU.items.length)) {
+  const wantN = !!(invU.isHero);
+  const wantLen = invU.items.length + (wantN ? 1 : 0);
+  if (hudEl.invU !== invU || (hudEl.items && hudEl.items.length !== wantLen)) {
     hudEl.invU = invU; const ib = $('items'); ib.innerHTML = ''; hudEl.items = [];
     for (let i = 0; i < invU.items.length; i++) {
       const el = document.createElement('div'); el.className = 'slot';
@@ -5807,6 +5982,13 @@ function updateHUD() {
       bindTip(el, () => invU.items[i] ? itemTip(invU.items[i].id, true) : '<div class="tc">空物品栏</div>');
       ib.appendChild(el); hudEl.items.push({ el, icw: el.querySelector('.icw'), cdov: el.querySelector('.cdov'), cdtxt: el.querySelector('.cdtxt'), chg: el.querySelector('.chg'), id: undefined });
     }
+    if (wantN) {
+      const el = document.createElement('div'); el.className = 'slot nslot';
+      el.innerHTML = `<div class="icw" style="width:100%;height:100%"></div><div class="cdov"></div><div class="cdtxt" style="font-size:16px"></div><div class="key">7</div><div class="ntag">中立</div><div class="chg"></div>`;
+      el.addEventListener('mousedown', e => { e.stopPropagation(); if (e.button === 0) pressItem(6); else if (e.button === 2) { sellItem(6); hideTip(); } });
+      bindTip(el, () => invU.neutral ? itemTip(invU.neutral.id, true) : '<div class="tc">中立物品栏（野怪掉落）</div>');
+      ib.appendChild(el); hudEl.items.push({ el, icw: el.querySelector('.icw'), cdov: el.querySelector('.cdov'), cdtxt: el.querySelector('.cdtxt'), chg: el.querySelector('.chg'), id: undefined, neutral: true });
+    }
   }
   invU.items.forEach((it, i) => {
     const e = hudEl.items[i], id = it ? it.id : null;
@@ -5815,6 +5997,13 @@ function updateHUD() {
     setT(e.cdtxt, it && it.cd > 0 ? String(Math.ceil(it.cd)) : '');
     setT(e.chg, it && (it.def.stack || it.id === 'bloodstone') ? String(it.charges || 0) : '');
   });
+  if (wantN && hudEl.items[6]) {
+    const e = hudEl.items[6], it = invU.neutral, id = it ? it.id : null;
+    if (e.id !== id) { e.id = id; e.icw.innerHTML = id ? icoHTML(ITEM_DEFS[id].icon, ITEM_DEFS[id].color) : ''; }
+    setS(e.cdov, 'background', cdBg(it && it.cd > 0 ? it.cd / ((it.def.active && it.def.active.cd) || 1) : 0));
+    setT(e.cdtxt, it && it.cd > 0 ? String(Math.ceil(it.cd)) : '');
+    setT(e.chg, '');
+  }
   updateGlyphHUD();
   if ((hudSlow -= 1) > 0) return; hudSlow = 6;
   const S = (U.def || P.def).stats, pr = S.primary, st = (k, n, g) => `<div><span class="${k === 'str' ? 'sa' : k === 'agi' ? 'sg' : 'si'}">${n}${pr === k ? '★' : ''}</span><b>${Math.floor(P[k])} <small style="color:#888">+${g}</small></b></div>`;
@@ -5845,7 +6034,7 @@ const HELP_HTML = `<div style="color:#ffd54f;font-size:16px;font-weight:bold;mar
 <b>Alt + Q/W/E/R</b>学习技能（或点击技能上方的“+”）<br>
 <b>A + 左键</b>攻击移动<br>
 <b>S</b>停止　　<b style="min-width:0">H</b>　原地待命<br>
-<b>1 - 6</b>使用物品栏物品（右键物品出售）<br>
+<b>1 - 6</b>使用物品栏物品（右键出售）　<b>7</b>中立物品（右键丢弃）<br>
 <b>B</b>打开 / 关闭商店（阵亡时 = 买活）　<b>G</b>防御符文<br>
 <b>T</b>战熊选中时移交物品；否则进入神杖/魔晶赠予瞄准（点友军，远处由信使运送）<br>
 <b>方向键 / 鼠标移到屏幕边缘</b>移动镜头<br>
@@ -6936,6 +7125,12 @@ Object.assign(GameAPI, {
 });
 Object.assign(GameAPI, { IND, indInfo, updateIndicators, pressSkill, skillTargeting, mouse });
 Object.assign(GameAPI, { CREEP_INST, updateCreepInst, creepLodR2, creepInstR2 });
+Object.assign(GameAPI, {
+  // B29 neutrals + bot HG/combo micro
+  NEUTRAL_DROP_CHANCE, NEUTRAL_POOL, NEUTRAL_TIER_AT, isNeutralItem, invItem, giveNeutral, dropNeutral,
+  tryNeutralDrop, forceNeutralDrop, pickNeutralId,
+  isHighGround, botForceSave, botBlinkSetup, teamDive,
+});
 
 // ===== net/rng.js =====
 // net/rng.js — B11 deterministic randomness for LAN lockstep. In multiplayer every peer runs the same simulation from the same
@@ -11701,6 +11896,55 @@ registerItem({ id: 'mkb', order: 50, name: '金箍棒', en: 'Monkey King Bar', i
   props: { dmg: 40, as: 45, trueStrike: 1 },
   desc: '大剑 + 加速手套 ×2 + 2725。+40 攻击力，+45 攻击速度。被动·克敌先机：攻击无法被闪避（无视闪避与致盲）；40% 几率附加 70 点魔法伤害。',
   onAttackLand(c, t) { if (!t.isBuilding && !t.dead && Math.random() < 0.4) { dealDamage(c.caster, t, 70, 'magic', { ability: 'mkb' }); AB.burst(t.x, 1.2, t.z, 6, ['#ffd54f', '#fff8e1'], 3, 0.3, 0.2, 1, 0); } } });
+
+// ===== items/neutrals.js =====
+// items/neutrals.js — B29 neutral/token items (camp drops). noShop + noSell; carried in dedicated h.neutral slot
+// (entities/neutralitems.js). Three timed tiers (7 / 17 / 27 min). Chinese names for HUD/tooltips.
+const N_SWIFT_MOD = { id: 'n_swift', name: '迅捷', color: '#81c784', props: { msPct: 0.22 } };
+const N_MIRROR_MOD = { id: 'n_mirror', name: '镜盾', color: '#ce93d8', props: { magicRes: 0.45 } };
+
+registerItem({ id: 'n_hobbit', order: 200, name: '旅者之靴', en: "Traveller's Boots", icon: '靴', color: '#8d6e63', cost: 0,
+  noShop: true, noSell: true, neutral: true, tier: 1,
+  props: { ms: 0.8 },
+  desc: '中立物品·第1档（约7分钟起）。+0.8 移动速度。被动，无法出售，占据中立栏。' });
+
+registerItem({ id: 'n_armor', order: 201, name: '丛林护甲', en: 'Grove Plate', icon: '甲', color: '#6d4c41', cost: 0,
+  noShop: true, noSell: true, neutral: true, tier: 1,
+  props: { armor: 4, hpRegen: 3 },
+  desc: '中立物品·第1档（约7分钟起）。+4 护甲，+3 生命恢复。被动，占据中立栏。' });
+
+registerItem({ id: 'n_swift', order: 202, name: '迅捷闪光', en: 'Swift Flash', icon: '迅', color: '#66bb6a', cost: 0,
+  noShop: true, noSell: true, neutral: true, tier: 2,
+  props: { ms: 0.4, as: 15 },
+  desc: '中立物品·第2档（约17分钟起）。+0.4 移动速度，+15 攻击速度。主动·迅捷：4秒内移动速度 +22%。冷却 25 秒。',
+  active: { target: 'none', cd: 25, onUse(c) {
+    AB.addModifier(c.caster, N_SWIFT_MOD, c.caster, { dur: 4 });
+    AB.burst(c.caster.x, 1, c.caster.z, 14, ['#a5d6a7', '#ffffff'], 4, 0.4, 0.22, 2, 0);
+  } } });
+
+registerItem({ id: 'n_prism', order: 203, name: '棱晶护符', en: 'Prism Charm', icon: '晶', color: '#29b6f6', cost: 0,
+  noShop: true, noSell: true, neutral: true, tier: 2,
+  props: { mana: 150, manaRegen: 1.5 },
+  desc: '中立物品·第2档（约17分钟起）。+150 魔法，+1.5 魔法恢复。主动·净化：驱散自身负面效果并回复 180 生命。冷却 30 秒。',
+  active: { target: 'none', cd: 30, onUse(c) {
+    if (typeof purgeDebuffs === 'function') purgeDebuffs(c.caster);
+    c.caster.hp = Math.min(c.caster.maxHp, c.caster.hp + 180);
+    AB.burst(c.caster.x, 1.2, c.caster.z, 18, ['#81d4fa', '#e1f5fe', '#ffffff'], 5, 0.5, 0.25, 2, 0);
+  } } });
+
+registerItem({ id: 'n_vambrace', order: 204, name: '臂铠', en: 'Vambrace', icon: '臂', color: '#ef6c00', cost: 0,
+  noShop: true, noSell: true, neutral: true, tier: 3,
+  props: { str: 8, agi: 8, int: 8, armor: 2 },
+  desc: '中立物品·第3档（约27分钟起）。+8 全属性，+2 护甲。被动，占据中立栏。' });
+
+registerItem({ id: 'n_mirror', order: 205, name: '镜盾', en: 'Mirror Shield', icon: '镜', color: '#ab47bc', cost: 0,
+  noShop: true, noSell: true, neutral: true, tier: 3,
+  props: { hp: 200, magicRes: 0.1 },
+  desc: '中立物品·第3档（约27分钟起）。+200 生命，+10% 魔法抗性。主动·镜盾：3.5秒内额外 +45% 魔法抗性。冷却 40 秒。',
+  active: { target: 'none', cd: 40, onUse(c) {
+    AB.addModifier(c.caster, N_MIRROR_MOD, c.caster, { dur: 3.5 });
+    AB.burst(c.caster.x, 1.1, c.caster.z, 16, ['#ce93d8', '#f3e5f5', '#ffffff'], 5, 0.45, 0.25, 2, 0);
+  } } });
 
 // ===== items/octarine.js =====
 // items/octarine.js — 玲珑心 Octarine Core: +HP/mana, 25% cooldown reduction (cast.js / inventory.js), 25% spell lifesteal on magic/pure ability damage.

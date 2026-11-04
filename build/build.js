@@ -8,7 +8,7 @@ const MANIFEST = [
   'map/lanes.js', 'map/jungle.js', 'map/grid.js', 'map/path.js', 'map/trees.js', 'map/walls.js',
   'render/renderer.js', 'render/terrain.js', 'render/trees.js', 'render/walls.js', 'render/voxel.js', 'render/models.js', 'render/particles.js', 'render/animate.js', 'render/forms.js', 'render/neutralmodels.js', 'render/jungle.js', 'render/fogrender.js', 'render/creepinst.js',
   'abilities/modifiers.js', 'abilities/status.js', 'vision/fog.js', 'vision/invis.js', 'vision/blur.js',
-  'entities/unit.js', 'entities/buildings.js', 'entities/creeps.js', 'entities/hero.js', 'entities/inventory.js', 'entities/shop.js', 'entities/shopsites.js', 'entities/wards.js', 'entities/summons.js', 'entities/illusions.js', 'entities/neutrals.js', 'entities/roshan.js', 'entities/drops.js', 'entities/courier.js', 'entities/buyback.js', 'entities/glyph.js',
+  'entities/unit.js', 'entities/buildings.js', 'entities/creeps.js', 'entities/hero.js', 'entities/inventory.js', 'entities/shop.js', 'entities/shopsites.js', 'entities/wards.js', 'entities/summons.js', 'entities/illusions.js', 'entities/neutrals.js', 'entities/roshan.js', 'entities/drops.js', 'entities/neutralitems.js', 'entities/courier.js', 'entities/buyback.js', 'entities/glyph.js',
   'combat/damage.js', 'combat/kills.js', 'combat/attack.js', 'combat/targeting.js', 'combat/movement.js',
   'abilities/cast.js', 'abilities/channel.js', 'abilities/aura.js', 'abilities/api.js', 'abilities/combo.js', 'abilities/mobility.js', 'abilities/cc.js', 'abilities/summon.js', 'abilities/toggle.js', 'abilities/displace.js', 'abilities/orb.js', 'abilities/shapes.js', 'abilities/scepter.js', 'abilities/shard.js', 'abilities/reincarnate.js',
   'ai/creep.js', 'ai/neutral.js', 'ai/tower.js', 'ai/hero.js', 'ai/bot/*',

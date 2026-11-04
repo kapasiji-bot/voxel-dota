@@ -10,7 +10,7 @@ function createHero(id, team = RAD, o = {}) {
   const ring = new T.Mesh(new T.RingGeometry(0.95, 1.2, 32), new T.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.8, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; model.add(ring);
   const h = addUnit({ kind: 'hero', isHero: true, name: d.name, team, x: heroSpawn(team).x + (o.slot || 0) * 1.6, z: heroSpawn(team).z, radius: s.radius, height: s.height, def: d, level: 1, xp: 0, gold: 600, goldF: 0,
-    abilities: d.abilities.map(a => ({ def: a, lvl: 0, cd: 0, cdMax: 1 })), items: [null, null, null, null, null, null],
+    abilities: d.abilities.map(a => ({ def: a, lvl: 0, cd: 0, cdMax: 1 })), items: [null, null, null, null, null, null], neutral: null,
     range: s.range, atkPoint: s.atkPoint, backswing: s.backswing, proj: s.proj, projColor: s.projColor, magicRes: 0.25,
     order: { type: 'idle' }, path: null, repathT: 0, kills: 0, deaths: 0, assists: 0, lh: 0, dn: 0, respawn: 0, facing: team === RAD ? Math.PI * 0.75 : -Math.PI * 0.25, streak: 0, dmgBy: {}, isBot: !!o.bot, ringColor, ringMesh: ring }, model);
   refreshHero(h); h.hp = h.maxHp; h.mana = h.maxMana;
@@ -19,11 +19,13 @@ function createHero(id, team = RAD, o = {}) {
 }
 function heroProps(h) {
   const P = gatherProps(h), seen = {};
-  for (const it of h.items) if (it) {
-    const p = it.def.props; if (!p) continue;
-    if (it.def.unique) { const g = it.def.uniqueGroup || it.def.id; if (seen[g]) continue; seen[g] = 1; }
+  const applyIt = it => {
+    const p = it.def.props; if (!p) return;
+    if (it.def.unique) { const g = it.def.uniqueGroup || it.def.id; if (seen[g]) return; seen[g] = 1; }
     for (const k in p) P[k] = (P[k] || 0) + p[k];
-  }
+  };
+  for (const it of h.items) if (it) applyIt(it);
+  if (h.neutral) applyIt(h.neutral);   // B29 neutral slot props
   for (const a of h.abilities) if (a.lvl > 0 && a.def.passiveProps) { const p = a.def.passiveProps(abilityCtx(h, a)); for (const k in p) P[k] = (P[k] || 0) + p[k]; }
   return P;
 }
@@ -88,6 +90,7 @@ function respawnHero(h) {
 function updateHeroTimers(h, dt) {
   for (const s of h.abilities) if (s.cd > 0) s.cd = Math.max(0, s.cd - dt);
   for (const it of h.items) if (it && it.cd > 0) it.cd = Math.max(0, it.cd - dt);
+  if (h.neutral && h.neutral.cd > 0) h.neutral.cd = Math.max(0, h.neutral.cd - dt);   // B29
   if (h.icd) for (const it of h.items) if (it && it.def.heroCd) it.cd = Math.max(0, (h.icd[it.id] || 0) - G.time);
   if (h.dead) {
     h.respawn -= dt; if (h === G.player && typeof updateDeathUI === 'function') updateDeathUI(h); else if (h === G.player) setT($('deathTxt'), `你已阵亡 —— ${Math.ceil(h.respawn)} 秒后复活`);
