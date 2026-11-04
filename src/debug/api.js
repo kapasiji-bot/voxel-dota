@@ -98,9 +98,10 @@ const GameAPI = {
   toggleAutocast: (slot, on, h = G.player) => toggleAutocast(h, slot, on), applyCrit, comboReady, botCombo, PORTRAITS, floats, projPool, BEAM_POOL, projectiles,
   setShadows(on) { renderer.shadowMap.enabled = !!on; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); },
   // B6: perf probes — render one frame now and report renderer.info + live object counts
-  renderInfo() { updateCamera(1); renderFog(0); const t0 = performance.now(); renderer.render(scene, camera); const ms = performance.now() - t0, i = renderer.info; let objs = 0; scene.traverse(() => objs++);
+  renderInfo() { updateCamera(1); renderFog(0); if (typeof updateCreepInst === 'function') updateCreepInst(); const t0 = performance.now(); renderer.render(scene, camera); const ms = performance.now() - t0, i = renderer.info; let objs = 0; scene.traverse(() => objs++);
     return { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, progs: i.programs ? i.programs.length : 0, objs, ms: +ms.toFixed(1),
-      particles: parts.length, projectiles: projectiles.length, effects: effects.length, timers: timers.length, units: units.length, live: units.filter(u => !u.dead).length, floats: (typeof floats !== 'undefined' ? floats.length : -1), log: Events.log.length }; },
+      particles: parts.length, projectiles: projectiles.length, effects: effects.length, timers: timers.length, units: units.length, live: units.filter(u => !u.dead).length, floats: (typeof floats !== 'undefined' ? floats.length : -1), log: Events.log.length,
+      creepInst: typeof CREEP_INST !== 'undefined' ? { far: CREEP_INST.far, near: CREEP_INST.near, draws: CREEP_INST.draws, pools: CREEP_INST.pools, on: CREEP_INST.on } : null }; },
   laneS, laneDist, AB, MODS, addModifier, removeModById, hasState, getMod, stun: (u, dur, src = null) => stunUnit(u, src, dur),
   // B7: items / scepter / shop UI
   isInvuln, itemCat, setShopTab, setShopSearch, itemTip, skillTip, recipeTree, hasScepter, scepterDef, applyScepter, itemTargetError, absorbMagic,

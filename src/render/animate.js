@@ -12,6 +12,12 @@ function syncModel(u, dt) {
   m.rotation.y = lerpAngle(m.rotation.y, u.facing, Math.min(1, dt * 14));
   const moving = (u.moveDist || 0) > 0.01; u.moveDist = 0;
   if (moving) u.anim.walk += dt * u.speed * 1.5;
+  // LOD: instanced far creeps — pose is static in the pool; keep facing/pos only
+  if (u._lodInst) return;
+  // cheap far LOD for neutrals / other non-heroes: skip limb work when idle
+  if (!u.isHero && !u.isBuilding && !u.atk && !u.casting && !u.channel && typeof creepLodR2 === 'function') {
+    if ((u.x - G.cam.x) ** 2 + (u.z - G.cam.z) ** 2 > creepLodR2()) return;
+  }
   const sw = moving ? Math.sin(u.anim.walk) * 0.75 : 0, lk = Math.min(1, dt * 14);
   if (p.legFL) { animQuad(u, p, sw, lk, moving); return; }
   if (!p.legL) return;   // static models (Death Ward)   // 4-legged models (render/forms.js)

@@ -59,7 +59,7 @@ function frame(now) {
   else if (G.started && !G.paused && !G.halt && !G.over) { let t = rdt * G.timeScale; while (t > 1e-6) { const s = Math.min(0.05, t); step(s); t -= s; } }
   else if (!G.paused) { for (let i = effects.length - 1; i >= 0; i--) if (effects[i].update(rdt)) effects.splice(i, 1); updateCorpses(rdt); updateParticles(rdt); for (const u of units) if (u.isBuilding && !u.dead) syncModel(u, rdt); }
   updateCamera(rdt); updateIndicators(); tickAudio(rdt);   // audio/ambience.js (B9)
-  if (G.started) { renderFog(rdt); renderTrees(rdt); renderWalls(rdt); animJungleProps(rdt); }
+  if (G.started) { renderFog(rdt); updateCreepInst(); renderTrees(rdt); renderWalls(rdt); animJungleProps(rdt); }
   renderer.render(scene, camera);
   drawOverlay();
   if (G.started) { drawMinimap(); updateHUD(); updateChannelBar(); updateScoreboard(rdt); }

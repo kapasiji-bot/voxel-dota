@@ -6,7 +6,7 @@ const ROOT = path.resolve(__dirname, '..'), SRC = path.join(ROOT, 'src');
 const MANIFEST = [
   'core/util.js', 'core/events.js', 'core/state.js',
   'map/lanes.js', 'map/jungle.js', 'map/grid.js', 'map/path.js', 'map/trees.js', 'map/walls.js',
-  'render/renderer.js', 'render/terrain.js', 'render/trees.js', 'render/walls.js', 'render/voxel.js', 'render/models.js', 'render/particles.js', 'render/animate.js', 'render/forms.js', 'render/neutralmodels.js', 'render/jungle.js', 'render/fogrender.js',
+  'render/renderer.js', 'render/terrain.js', 'render/trees.js', 'render/walls.js', 'render/voxel.js', 'render/models.js', 'render/particles.js', 'render/animate.js', 'render/forms.js', 'render/neutralmodels.js', 'render/jungle.js', 'render/fogrender.js', 'render/creepinst.js',
   'abilities/modifiers.js', 'abilities/status.js', 'vision/fog.js', 'vision/invis.js', 'vision/blur.js',
   'entities/unit.js', 'entities/buildings.js', 'entities/creeps.js', 'entities/hero.js', 'entities/inventory.js', 'entities/shop.js', 'entities/shopsites.js', 'entities/wards.js', 'entities/summons.js', 'entities/illusions.js', 'entities/neutrals.js', 'entities/roshan.js', 'entities/drops.js', 'entities/courier.js', 'entities/buyback.js', 'entities/glyph.js',
   'combat/damage.js', 'combat/kills.js', 'combat/attack.js', 'combat/targeting.js', 'combat/movement.js',

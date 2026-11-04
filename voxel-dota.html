@@ -361,7 +361,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = 'e371d0699e';
+const BUILD_ID = '50e19e6022';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -1080,6 +1080,12 @@ function syncModel(u, dt) {
   m.rotation.y = lerpAngle(m.rotation.y, u.facing, Math.min(1, dt * 14));
   const moving = (u.moveDist || 0) > 0.01; u.moveDist = 0;
   if (moving) u.anim.walk += dt * u.speed * 1.5;
+  // LOD: instanced far creeps — pose is static in the pool; keep facing/pos only
+  if (u._lodInst) return;
+  // cheap far LOD for neutrals / other non-heroes: skip limb work when idle
+  if (!u.isHero && !u.isBuilding && !u.atk && !u.casting && !u.channel && typeof creepLodR2 === 'function') {
+    if ((u.x - G.cam.x) ** 2 + (u.z - G.cam.z) ** 2 > creepLodR2()) return;
+  }
   const sw = moving ? Math.sin(u.anim.walk) * 0.75 : 0, lk = Math.min(1, dt * 14);
   if (p.legFL) { animQuad(u, p, sw, lk, moving); return; }
   if (!p.legL) return;   // static models (Death Ward)   // 4-legged models (render/forms.js)
@@ -1326,6 +1332,95 @@ function updateDayNight(rdt) {
   scene.background.copy(DN.nightBg).lerp(DN.dayBg, d); scene.fog.color.copy(scene.background);
   if (HEMI) HEMI.intensity = DN.nightHemi + (DN.dayHemi - DN.nightHemi) * d;
   sun.intensity = DN.nightSun + (DN.daySun - DN.nightSun) * d; sun.color.copy(DN.nightSunC).lerp(DN.daySunC, d);
+}
+
+// ===== render/creepinst.js =====
+// render/creepinst.js — GPU InstancedMesh LOD for identical lane creeps (melee/ranged × team).
+// Near camera (or attacking/casting): keep per-unit SkinnedMesh + syncModel bones. Far: hide skinned
+// body/glow meshes and pack transforms into a shared InstancedMesh (1–2 draws per archetype).
+const CREEP_INST_MAX = 48, CREEP_LOD_MUL = 0.42, CREEP_LOD_PAD = 8, CREEP_INST_MUL = 1.15, CREEP_INST_PAD = 12;
+const _ciPools = {}, _ciDummy = new T.Object3D();
+const CREEP_INST = { on: true, far: 0, near: 0, pools: 0, draws: 0 };
+
+function bakePartBoxes(def, glow) {
+  const out = [];
+  for (const name in def) {
+    const pd = def[name], boxes = glow ? pd.g : pd.b; if (!boxes) continue;
+    const px = pd.p[0], py = pd.p[1], pz = pd.p[2];
+    for (const b of boxes) out.push([b[0] + px, b[1] + py, b[2] + pz, b[3], b[4], b[5], b[6]]);
+  }
+  return out;
+}
+function creepInstPool(key) {
+  let p = _ciPools[key]; if (p) return p;
+  const def = CREEP_MODELS[key]();
+  const geo = geoCache['ci|' + key] || (geoCache['ci|' + key] = voxGeo(bakePartBoxes(def, false)));
+  const mesh = new T.InstancedMesh(geo, vmat, CREEP_INST_MAX);
+  mesh.castShadow = false; mesh.receiveShadow = true; mesh.frustumCulled = false; // units frustum-filtered before packing
+  mesh.count = 0; mesh.visible = false; scene.add(mesh);
+  let glow = null;
+  const gb = bakePartBoxes(def, true);
+  if (gb.length) {
+    const ggeo = geoCache['ci|' + key + '|g'] || (geoCache['ci|' + key + '|g'] = voxGeo(gb));
+    glow = new T.InstancedMesh(ggeo, vglow, CREEP_INST_MAX);
+    glow.castShadow = false; glow.frustumCulled = false; glow.count = 0; glow.visible = false;
+    scene.add(glow);
+  }
+  return (_ciPools[key] = { mesh, glow, n: 0 });
+}
+function showCreepSkinned(u, on) {
+  const m = u.model; if (!m) return;
+  const body = m.userData.body, glow = m.userData.glow;
+  if (body && body.visible !== on) body.visible = on;
+  if (glow && glow.visible !== on) glow.visible = on;
+}
+function clearCreepLod(u) {
+  if (!u._lodInst) return; u._lodInst = false; showCreepSkinned(u, true);
+}
+function creepInstEligible(u) {
+  return !!(CREEP_INST.on && u && !u.dead && (u.kind === 'melee' || u.kind === 'ranged') && u.model && !u.form && !u._fx);
+}
+function creepLodR2() { return (G.cam.dist * CREEP_LOD_MUL + CREEP_LOD_PAD) ** 2; }
+function creepInstR2() { return (G.cam.dist * CREEP_INST_MUL + CREEP_INST_PAD) ** 2; }  // beyond: leave skinned for frustum cull
+function updateCreepInst() {
+  for (const k in _ciPools) _ciPools[k].n = 0;
+  CREEP_INST.far = CREEP_INST.near = 0;
+  if (!G.started || !CREEP_INST.on) {
+    for (const u of units) clearCreepLod(u);
+    for (const k in _ciPools) { const p = _ciPools[k]; p.mesh.count = 0; p.mesh.visible = false; if (p.glow) { p.glow.count = 0; p.glow.visible = false; } }
+    return;
+  }
+  const cx = G.cam.x, cz = G.cam.z, lodR2 = creepLodR2();
+  for (const u of units) {
+    if (!creepInstEligible(u)) { clearCreepLod(u); continue; }
+    const m = u.model;
+    if (!m.visible) { clearCreepLod(u); continue; }   // fog-hidden: no instance slot; skinned stays parent-hidden
+    const forceNear = u.atk || u.casting || u.channel || (u.anim && u.anim.spin > 0);
+    const d2 = (u.x - cx) ** 2 + (u.z - cz) ** 2;
+    // RTS cam looks at (cx,cz): keep instances inside a view disc so we do not draw off-screen packs
+    const viewR2 = (G.cam.dist * 0.78 + 6) ** 2;
+    if (d2 > viewR2 || d2 > creepInstR2()) { CREEP_INST.near++; clearCreepLod(u); continue; }
+    const far = !forceNear && d2 > lodR2;
+    if (!far) { CREEP_INST.near++; clearCreepLod(u); continue; }
+    const key = u.kind + u.team, pool = creepInstPool(key);
+    if (pool.n >= CREEP_INST_MAX) { CREEP_INST.near++; clearCreepLod(u); continue; }
+    const i = pool.n++, sc = (m.userData.inner && m.userData.inner.scale.x) || 1;
+    _ciDummy.position.set(u.x, m.position.y, u.z);
+    _ciDummy.rotation.set(0, m.rotation.y, 0);
+    _ciDummy.scale.set(sc, sc, sc);
+    _ciDummy.updateMatrix();
+    pool.mesh.setMatrixAt(i, _ciDummy.matrix);
+    if (pool.glow) pool.glow.setMatrixAt(i, _ciDummy.matrix);
+    if (!u._lodInst) { u._lodInst = true; showCreepSkinned(u, false); }
+    CREEP_INST.far++;
+  }
+  let draws = 0;
+  for (const k in _ciPools) {
+    const p = _ciPools[k], on = p.n > 0;
+    p.mesh.count = p.n; p.mesh.visible = on; if (on) { p.mesh.instanceMatrix.needsUpdate = true; draws++; }
+    if (p.glow) { p.glow.count = p.n; p.glow.visible = on; if (on) { p.glow.instanceMatrix.needsUpdate = true; draws++; } }
+  }
+  CREEP_INST.pools = Object.keys(_ciPools).length; CREEP_INST.draws = draws;
 }
 
 // ===== abilities/modifiers.js =====
@@ -6682,7 +6777,7 @@ function frame(now) {
   else if (G.started && !G.paused && !G.halt && !G.over) { let t = rdt * G.timeScale; while (t > 1e-6) { const s = Math.min(0.05, t); step(s); t -= s; } }
   else if (!G.paused) { for (let i = effects.length - 1; i >= 0; i--) if (effects[i].update(rdt)) effects.splice(i, 1); updateCorpses(rdt); updateParticles(rdt); for (const u of units) if (u.isBuilding && !u.dead) syncModel(u, rdt); }
   updateCamera(rdt); updateIndicators(); tickAudio(rdt);   // audio/ambience.js (B9)
-  if (G.started) { renderFog(rdt); renderTrees(rdt); renderWalls(rdt); animJungleProps(rdt); }
+  if (G.started) { renderFog(rdt); updateCreepInst(); renderTrees(rdt); renderWalls(rdt); animJungleProps(rdt); }
   renderer.render(scene, camera);
   drawOverlay();
   if (G.started) { drawMinimap(); updateHUD(); updateChannelBar(); updateScoreboard(rdt); }
@@ -6790,9 +6885,10 @@ const GameAPI = {
   toggleAutocast: (slot, on, h = G.player) => toggleAutocast(h, slot, on), applyCrit, comboReady, botCombo, PORTRAITS, floats, projPool, BEAM_POOL, projectiles,
   setShadows(on) { renderer.shadowMap.enabled = !!on; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); },
   // B6: perf probes — render one frame now and report renderer.info + live object counts
-  renderInfo() { updateCamera(1); renderFog(0); const t0 = performance.now(); renderer.render(scene, camera); const ms = performance.now() - t0, i = renderer.info; let objs = 0; scene.traverse(() => objs++);
+  renderInfo() { updateCamera(1); renderFog(0); if (typeof updateCreepInst === 'function') updateCreepInst(); const t0 = performance.now(); renderer.render(scene, camera); const ms = performance.now() - t0, i = renderer.info; let objs = 0; scene.traverse(() => objs++);
     return { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, progs: i.programs ? i.programs.length : 0, objs, ms: +ms.toFixed(1),
-      particles: parts.length, projectiles: projectiles.length, effects: effects.length, timers: timers.length, units: units.length, live: units.filter(u => !u.dead).length, floats: (typeof floats !== 'undefined' ? floats.length : -1), log: Events.log.length }; },
+      particles: parts.length, projectiles: projectiles.length, effects: effects.length, timers: timers.length, units: units.length, live: units.filter(u => !u.dead).length, floats: (typeof floats !== 'undefined' ? floats.length : -1), log: Events.log.length,
+      creepInst: typeof CREEP_INST !== 'undefined' ? { far: CREEP_INST.far, near: CREEP_INST.near, draws: CREEP_INST.draws, pools: CREEP_INST.pools, on: CREEP_INST.on } : null }; },
   laneS, laneDist, AB, MODS, addModifier, removeModById, hasState, getMod, stun: (u, dur, src = null) => stunUnit(u, src, dur),
   // B7: items / scepter / shop UI
   isInvuln, itemCat, setShopTab, setShopSearch, itemTip, skillTip, recipeTree, hasScepter, scepterDef, applyScepter, itemTargetError, absorbMagic,
@@ -6839,6 +6935,7 @@ Object.assign(GameAPI, {
   sun, updateShadowCam, updateCamera, vmat, vglow,
 });
 Object.assign(GameAPI, { IND, indInfo, updateIndicators, pressSkill, skillTargeting, mouse });
+Object.assign(GameAPI, { CREEP_INST, updateCreepInst, creepLodR2, creepInstR2 });
 
 // ===== net/rng.js =====
 // net/rng.js — B11 deterministic randomness for LAN lockstep. In multiplayer every peer runs the same simulation from the same

@@ -26,3 +26,4 @@ Object.assign(GameAPI, {
   sun, updateShadowCam, updateCamera, vmat, vglow,
 });
 Object.assign(GameAPI, { IND, indInfo, updateIndicators, pressSkill, skillTargeting, mouse });
+Object.assign(GameAPI, { CREEP_INST, updateCreepInst, creepLodR2, creepInstR2 });

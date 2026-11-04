@@ -260,6 +260,7 @@ require('./tests/b24.js')({ test, boot, assert });
 require('./tests/b25.js')({ test, boot, assert });
 require('./tests/b26.js')({ test, boot, assert });
 require('./tests/b27.js')({ test, boot, assert });
+require('./tests/b28.js')({ test, boot, assert });
 require('./tests/fullscreen.js')({ test, boot, assert });
 require('./tests/net.js')({ test, boot, assert });
 

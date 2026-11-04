@@ -40,14 +40,15 @@ Heroes come in batches of 3–4. Each batch is grouped by the engine features it
 | **Shared ally courier ✅ batch 6** | Teammates issue deliver/home/secret on an ally courier (LAN lockstep `cour` + owner id); stash/bag/gold stay with the owner; F3 / Shift+F3 + HUD ownership; click/Tab/F2 select team couriers | done |
 | **Render perf ✅ batch 7** | Unit models → 1–2 **SkinnedMesh**es per unit (bones = parts); camera-fitted shadow frustum; near-cam castShadow cull | done |
 | **Indicators / feel ✅** | ability targeting previews (cast-range ring green/red, AoE disk, cone trapezoid via `w0`, line skillshot, unit aim dash, A-move attack ring); cast confirm click marker; last-hit gold ring + soft thud (`lastHit` event); `IND`/`indInfo` for tests (`b27.js`) | done |
-| Later polish | More item-aware bot recipes; creep GPU instancing; neutrals/bot polish | planned |
+| **Creep GPU instancing + LOD ✅** | far identical lane creeps → shared `InstancedMesh` (`render/creepinst.js`); near/attacking keep SkinnedMesh; idle far neutrals skip limb anim; `CREEP_INST` + `b28.js` | done |
+| Later polish | More item-aware bot recipes; neutrals items + bot micro/combos | planned |
 
 ## Suggested next steps (older notes)
-- **Items / UI / Roshan / jungle / courier / render polish:** batches 1–7 done. LAN replay / spectate / checkpoints done (B11 follow-ups). Indicators / feel done. Next optional: creep GPU instancing.
+- **Items / UI / Roshan / jungle / courier / render polish:** batches 1–7 done. LAN replay / spectate / checkpoints done (B11 follow-ups). Indicators / feel done. Creep GPU instancing + LOD done. Next optional: neutrals items + bot micro/combos.
 - **Sound (B9 follow-ups):** voice lines / recorded announcer, per-hero attack timbres, reverb in the Roshan pit, music.
 - **Teamwork (B10/B12 follow-ups):** item-aware combos (BKB → Black Hole, Blink → Eul's), dynamic ward spots; smoke/buyback/glyph/lane-farmer already in B12.
 - **Jungle (B8 follow-ups):** Aegis deny + Refresher Shard (batch 4); bots stacking + courier snipe + Tinker Rearm (batch 5); shared ally courier (batch 6). Still open: neutral item drops.
 - **Audio:** Web Audio synth SFX (attacks, spell casts, crits, kills) and a mute toggle; still fully offline.
 - **Bots:** more item-aware combos (BKB → Black Hole); high-ground siege micro; dynamic ward spots.
-- **Perf:** ✅ batch 7 — per-unit SkinnedMesh merge (parts→bones) + camera-fitted shadow frustum + near-cam shadow casters. Still open: true GPU instancing for identical idle creeps, atlas LODs.
+- **Perf:** ✅ batch 7 SkinnedMesh merge + shadow frustum; ✅ creep GPU InstancedMesh LOD (`creepinst.js`) for far melee/ranged. Still open: atlas LODs / hero impostors.
 - **Multiplayer:** LAN lockstep + replay / spectate / checkpointed rejoin done (B11 + follow-ups). Next: signalling server + STUN/TURN for internet play; host migration; optional state-blob restore at checkpoints.
