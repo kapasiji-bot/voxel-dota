@@ -20,6 +20,7 @@ const heroBySlot = s => G.heroes.find(h => h.netSlot === s) || null;
 const netOwns = (h, u) => !!u && !!h && (u === h || (u.owner === h && !!u.controllable));
 // from the local UI: the host queues it for its next tick, a joiner sends it to the host
 function netCmd(c) {
+  if (netIsSpectating()) { err('观战中无法下达指令'); return '观战中'; }
   NET.stats.cmds++;
   if (NET.role === 'host') { c.p = NET.mySlot; LS.pend.push(c); } else netToHost({ t: 'cmd', c });
   return null;

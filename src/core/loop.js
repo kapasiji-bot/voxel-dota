@@ -40,11 +40,15 @@ function step(dt) {
 function endGame(win) {
   if (G.over) return; G.over = true; G.winner = win ? RAD : DIRE;
   emit('gameOver', { win });
+  if (NET.on && typeof replaySaveMem === 'function') replaySaveMem();   // B11 follow-up: keep last LAN/local lockstep replay
   const P = G.player, radWin = win; if (P && P.team === DIRE) win = !win;   // win = Radiant won; LAN Dire players see their own result
   setTimeout(() => {
     $('end').classList.remove('hidden');
-    const t = $('endTitle'); t.textContent = win ? '胜利！' : '失败'; t.style.color = win ? '#ffd54f' : '#ff5252';
-    $('endStats').innerHTML = `${radWin ? '夜魇遗迹已被摧毁，天辉获得了胜利！' : (P && P.team === DIRE ? '天辉遗迹已被摧毁，夜魇获得了胜利！' : '天辉遗迹已陷落……')}<br>英雄：${P ? P.def.name : '-'}　等级：${P ? P.level : '-'}<br>游戏时间：${fmtTime(G.time)}<br>击杀/死亡/助攻：${P ? `${P.kills}/${P.deaths}/${P.assists}` : '-'}　正补/反补：${P ? `${P.lh}/${P.dn}` : '-'}<br>总获得金钱：${Math.floor(G.goldEarned)}　摧毁建筑：${G.score[P ? P.team : RAD]}`;
+    const t = $('endTitle'); t.textContent = NET.spectating || NET.role === 'replay' ? (radWin ? '天辉胜利' : '夜魇胜利') : (win ? '胜利！' : '失败');
+    t.style.color = (NET.spectating || NET.role === 'replay' ? radWin : win) ? '#ffd54f' : '#ff5252';
+    const save = NET.on ? '<br><button class="mcbtn" id="endSaveRep">保存本局录像</button>' : '';
+    $('endStats').innerHTML = `${radWin ? '夜魇遗迹已被摧毁，天辉获得了胜利！' : (P && P.team === DIRE ? '天辉遗迹已被摧毁，夜魇获得了胜利！' : '天辉遗迹已陷落……')}<br>英雄：${P ? P.def.name : '-'}　等级：${P ? P.level : '-'}<br>游戏时间：${fmtTime(G.time)}<br>击杀/死亡/助攻：${P ? `${P.kills}/${P.deaths}/${P.assists}` : '-'}　正补/反补：${P ? `${P.lh}/${P.dn}` : '-'}<br>总获得金钱：${Math.floor(G.goldEarned)}　摧毁建筑：${G.score[P ? P.team : RAD]}${save}`;
+    const b = $('endSaveRep'); if (b) b.onclick = () => replayExport();
   }, 1500);
 }
 let last = performance.now(), fpsN = 0, fpsT = 0;

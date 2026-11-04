@@ -5,8 +5,8 @@
 //   sends a state hash every 30 ticks (net/sync.js). Hidden tabs keep pumping from network messages (no rAF there).
 // Rendering interpolates unit positions between the last two ticks (lsInterp / lsRestore around the real values).
 const NSTEP = 1 / 30, NAHEAD = 15;
-const LS = { n: 0, acc: 0, q: [], pend: [], log: [], hashes: {}, last: 0, ackSent: -1, ip: null, waitT: 0, ffTo: -1, ffLog: null };
-function lsReset() { Object.assign(LS, { n: 0, acc: 0, q: [], pend: [], log: [], hashes: {}, last: performance.now(), ackSent: -1, ip: null, waitT: 0, ffTo: -1, ffLog: null }); }
+const LS = { n: 0, acc: 0, q: [], pend: [], log: [], hashes: {}, last: 0, ackSent: -1, ip: null, waitT: 0, ffTo: -1, ffLog: null, cps: [], cpHits: 0, cpMiss: 0 };
+function lsReset() { Object.assign(LS, { n: 0, acc: 0, q: [], pend: [], log: [], hashes: {}, last: performance.now(), ackSent: -1, ip: null, waitT: 0, ffTo: -1, ffLog: null }); cpReset(); }
 function execTick(n, cmds) {
   lsRestore();
   if (NET.rngLog) { RNG.trace = []; NET.rngLog.set(n, RNG.trace); NET.rngLog.delete(n - 400); }   // debug: who called Math.random per tick
@@ -17,6 +17,7 @@ function execTick(n, cmds) {
   });
   LS.n = n + 1; NET.stats.frames++;
   if (n % 30 === 0) syncTick(n);   // net/sync.js
+  if (NET.role === 'host' || NET.role === 'replay') cpTick(n);   // net/checkpoint.js
   if (NET.trace) NET.trace.push([n, stateHash(), RNG.n]);   // debug: per-tick hashes (GameAPI.NET.trace = [])
   if (NET.dumpAll) (NET.dump || (NET.dump = [])).push(units.map(u => [u.id, u.kind, u.team, u.x, u.z, u.hp, u.mana, u.dead, u.order && u.order.type, u.atk && u.atk.phase, u.target && u.target.id, u.atk && u.atk.t, u.model && u.model.position.y, u.facing]));
 }
@@ -26,6 +27,7 @@ function netPump() {
   const now = performance.now(), rdt = Math.min(0.25, Math.max(0, (now - LS.last) / 1000)); LS.last = now;
   if (!G.started || G.over) return;
   if (LS.ffTo >= 0) { ffRun(); return; }   // net/drop.js: rejoin catch-up
+  if (NET.role === 'replay') { replayTicks(rdt); return; }   // net/replay.js
   if (NET.role === 'host') hostTicks(rdt); else clientTicks(rdt);
 }
 function minAck() { let m = Infinity; for (const p of NET.peers) if (!p.gone && p.slot >= 0 && p.synced) m = Math.min(m, p.ack); return m; }
@@ -76,6 +78,7 @@ function lsRestore() {
 // P key: singleplayer pause as before; in a LAN match only the host pauses (for everyone)
 function togglePause() {
   if (!NET.on) { G.paused = !G.paused; $('pause').classList.toggle('hidden', !G.paused); return; }
+  if (NET.role === 'replay') { NET.paused = G.paused = !NET.paused; replayHudTick(); return; }
   if (NET.role !== 'host') { err('只有房主可以暂停游戏'); return; }
   netSetPause(!NET.paused);
 }

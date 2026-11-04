@@ -283,6 +283,12 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 #netEnd,#netFF{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center}
 #netEnd .panel,#netFF .panel{padding:16px 26px;text-align:center;max-width:560px;font-size:16px;line-height:1.6}#netEnd h2{color:#ff8a80;margin:0 0 8px}
 #netEnd .mcbtn{margin-top:12px}#netFFTxt{font-size:20px;color:#ffd54f}
+
+#repHud{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:12;padding:3px 8px;font-size:13px;display:flex;gap:6px;align-items:center}
+#repHud .mcbtn{font-size:12px;padding:1px 6px}
+#repLoad{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:70;width:min(520px,92vw);padding:14px 18px}
+#repLoad h2{margin:0 0 8px;color:#ffd54f}#repStatus{margin:8px 0;color:#cfd8dc;font-size:14px}#repStatus.bad{color:#ff8a80}
+#repFile{display:block;margin:8px 0;color:#eee}
 </style>
 </head>
 <body>
@@ -343,6 +349,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 <div id="vcursor" class="hidden" data-kind="arrow"></div>
 <div id="netEnd" class="hidden"></div>
 <div id="netFF" class="hidden"></div>
+<div id="repHud" class="panel hidden"></div>
 <div id="end" class="hidden"><h1 id="endTitle">胜利</h1><div class="stats" id="endStats"></div><button class="mcbtn" style="font-size:22px;padding:10px 30px" onclick="location.reload()">再来一局</button></div>
 
 <script>/**
@@ -354,7 +361,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = '3350e76a40';
+const BUILD_ID = 'f791749d0b';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -5597,7 +5604,7 @@ function buildSkillBar(U) {
   });
 }
 function buildHUD() {
-  const P = G.player;
+  const P = G.player; if (!P) return;   // spectator resume sets follow target first; tolerate race
   buildSkillBar(P);
   const ib = $('items'); ib.innerHTML = ''; hudEl.items = [];
   for (let i = 0; i < 6; i++) {
@@ -6604,11 +6611,15 @@ function step(dt) {
 function endGame(win) {
   if (G.over) return; G.over = true; G.winner = win ? RAD : DIRE;
   emit('gameOver', { win });
+  if (NET.on && typeof replaySaveMem === 'function') replaySaveMem();   // B11 follow-up: keep last LAN/local lockstep replay
   const P = G.player, radWin = win; if (P && P.team === DIRE) win = !win;   // win = Radiant won; LAN Dire players see their own result
   setTimeout(() => {
     $('end').classList.remove('hidden');
-    const t = $('endTitle'); t.textContent = win ? '胜利！' : '失败'; t.style.color = win ? '#ffd54f' : '#ff5252';
-    $('endStats').innerHTML = `${radWin ? '夜魇遗迹已被摧毁，天辉获得了胜利！' : (P && P.team === DIRE ? '天辉遗迹已被摧毁，夜魇获得了胜利！' : '天辉遗迹已陷落……')}<br>英雄：${P ? P.def.name : '-'}　等级：${P ? P.level : '-'}<br>游戏时间：${fmtTime(G.time)}<br>击杀/死亡/助攻：${P ? `${P.kills}/${P.deaths}/${P.assists}` : '-'}　正补/反补：${P ? `${P.lh}/${P.dn}` : '-'}<br>总获得金钱：${Math.floor(G.goldEarned)}　摧毁建筑：${G.score[P ? P.team : RAD]}`;
+    const t = $('endTitle'); t.textContent = NET.spectating || NET.role === 'replay' ? (radWin ? '天辉胜利' : '夜魇胜利') : (win ? '胜利！' : '失败');
+    t.style.color = (NET.spectating || NET.role === 'replay' ? radWin : win) ? '#ffd54f' : '#ff5252';
+    const save = NET.on ? '<br><button class="mcbtn" id="endSaveRep">保存本局录像</button>' : '';
+    $('endStats').innerHTML = `${radWin ? '夜魇遗迹已被摧毁，天辉获得了胜利！' : (P && P.team === DIRE ? '天辉遗迹已被摧毁，夜魇获得了胜利！' : '天辉遗迹已陷落……')}<br>英雄：${P ? P.def.name : '-'}　等级：${P ? P.level : '-'}<br>游戏时间：${fmtTime(G.time)}<br>击杀/死亡/助攻：${P ? `${P.kills}/${P.deaths}/${P.assists}` : '-'}　正补/反补：${P ? `${P.lh}/${P.dn}` : '-'}<br>总获得金钱：${Math.floor(G.goldEarned)}　摧毁建筑：${G.score[P ? P.team : RAD]}${save}`;
+    const b = $('endSaveRep'); if (b) b.onclick = () => replayExport();
   }, 1500);
 }
 let last = performance.now(), fpsN = 0, fpsT = 0;
@@ -6997,6 +7008,7 @@ const NET = {
   on: false, role: '', me: -1, mySlot: -1, name: '', peers: [], hostCh: null, nextPid: 1, invites: {}, nextInv: 1,
   fake: /[?&]netfake=1/.test(location.search), fakeLag: 0, speed: 1, started: false, paused: false, ff: false,
   spec: null, ua: browserTag(), desync: [], ended: false, stats: { cmds: 0, frames: 0 },
+  spectating: false, ffSkipVis: false, ffMs: 0, ffTicks: 0, replayEnded: false,
 };
 const NET_H = {};
 const netPeer = pid => NET.peers.find(p => p.pid === pid) || null;
@@ -7018,7 +7030,10 @@ function netAddPeer(ch) {
 NET_H.hello = (p, m) => {
   p.name = String(m.name || '玩家').slice(0, 16); p.ua = String(m.ua || '?').slice(0, 12);
   if (m.v !== NET_VER) { chanSend(p.ch, { t: 'bye', why: '游戏版本不一致：请所有人打开同一个游戏文件 / 网址，并刷新页面后重试。' }); setTimeout(() => chanClosed(p.ch, 'version'), 300); return; }
-  if (NET.started) { netRejoin(p); return; }   // net/drop.js
+  if (NET.started) {   // net/drop.js — take over a dropped hero, else join as spectator
+    if (m.spectate || !G.heroes.some(h => h.netGone && h.netHuman)) netSpectateJoin(p); else netRejoin(p);
+    return;
+  }
   if (lobbyAdd(p.pid, p.name, p.ua) < 0) { chanSend(p.ch, { t: 'bye', why: '房间已满（最多 10 名玩家）' }); setTimeout(() => chanClosed(p.ch, 'full'), 300); return; }
   chanSend(p.ch, { t: 'welcome', pid: p.pid, host: NET.name });
   lobbyChanged(); netSys(`${p.name} 加入了房间`);
@@ -7230,7 +7245,7 @@ function buildNetMenu() {
   const tabs = document.createElement('div'); tabs.id = 'modeTabs';
   tabs.innerHTML = '<div class="mt on" data-m="sp">单人游戏</div><div class="mt" id="mtHost" data-m="host">创建局域网房间</div><div class="mt" id="mtJoin" data-m="join">加入局域网房间</div>';
   document.querySelector('#select .sub').after(tabs);
-  tabs.addEventListener('click', e => { const t = e.target.closest('.mt'); if (t && t.dataset.m !== 'sp') netOpenLobby(t.dataset.m); });
+  tabs.addEventListener('click', e => { const t = e.target.closest('.mt'); if (!t) return; if (t.dataset.m === 'sp') return; if (t.dataset.m === 'replay') return; netOpenLobby(t.dataset.m); });
   $('lobby').innerHTML = `<h1>局域网联机</h1>
     <div id="lbHead"><label>你的名字 <input id="lbName" type="text" maxlength="16" autocomplete="off" spellcheck="false"></label><span id="lbRole"></span><button class="mcbtn" id="lbBack">返回主菜单</button></div>
     <div id="lbJoin" class="hidden panel">
@@ -7238,7 +7253,7 @@ function buildNetMenu() {
       <button class="mcbtn" id="jGo">生成应答码</button>
       <div id="jAnsBox" class="hidden"><div class="lbStep"><b>第 2 步</b> 把下面的<em>应答码</em>复制发回给房主，等房主粘贴后会自动进入房间：</div><div class="row"><textarea id="jAns" readonly></textarea><button class="mcbtn" id="jCopy">复制应答码</button></div></div>
       <div id="jStatus"></div>
-      <div class="lbNote">所有玩家需连接<b>同一个局域网 / Wi-Fi</b>，并打开同一个游戏文件或网址；推荐使用最新版 Chrome / Edge。</div>
+      <div class="lbNote">所有玩家需连接<b>同一个局域网 / Wi-Fi</b>，并打开同一个游戏文件或网址；推荐使用最新版 Chrome / Edge。对局进行中加入且没有可接管的掉线英雄时，将以<strong>观战</strong>身份进入。</div>
     </div>
     <div id="lbRoom" class="hidden">
       <div id="lbTeams"><div class="lbTeam" id="lbRad"></div><div class="lbTeam" id="lbDire"></div></div>
@@ -7252,8 +7267,9 @@ function buildNetMenu() {
     <div class="lbNote">每位朋友需要一个单独的邀请码。朋友在「加入局域网房间」里粘贴邀请码，生成应答码发回给你。</div>
     <button class="mcbtn" id="invNew">生成新的邀请码</button><div id="invList"></div>`;
   $('netEnd').innerHTML = '<div class="panel"><h2>联机已结束</h2><div id="netEndTxt"></div><button class="mcbtn big" onclick="location.reload()">返回主菜单</button></div>';
-  $('netFF').innerHTML = '<div class="panel"><div id="netFFTxt">正在同步对局进度…</div><div class="lbNote">正在快速重演本局已发生的所有操作，请稍候。</div></div>';
+  $('netFF').innerHTML = '<div class="panel"><div id="netFFTxt">正在同步对局进度…</div><div class="lbNote">正在根据指令日志快速重演（检查点加速校验）；请稍候。</div></div>';
   bindLobby(); bindInvite(); bindChat();   // net/lobbyui.js, net/invite.js, net/chat.js
+  buildReplayMenu(); bindReplayKeys();   // net/replayui.js
   $('lbBack').addEventListener('click', () => { if (NET.role) location.reload(); else { $('lobby').classList.add('hidden'); } });
   $('lbName').value = localStorage.getItem('voxdota.name') || '玩家' + (100 + ((vrand() * 900) | 0));
   $('lbName').addEventListener('change', () => { const n = lbName(); localStorage.setItem('voxdota.name', n); NET.name = n; if (NET.role) lobbyAct('name', { name: n }); });
@@ -7299,12 +7315,14 @@ NET_H.start = (_, m) => { const s = m.spec.slots.find(x => x.pid === NET.me); if
 function netBegin(spec, mySlot) {
   if (G.started) return;
   NET.on = true; NET.started = true; NET.spec = spec; NET.mySlot = mySlot;
+  if (mySlot < 0) NET.spectating = true;
   rngInstall(); netInstall(); rngSeed(spec.seed); lsReset();
-  const me = spec.slots.find(s => s.i === mySlot);
+  const me = mySlot >= 0 ? spec.slots.find(s => s.i === mySlot) : null;
+  const myTeam = me ? me.team : RAD;
   simRun(() => {
     for (const u of units) u.acq = Math.random() * 0.3;   // boot-time randomness (buildings) → shared sequence
     for (const s of spec.slots) {
-      const ring = s.i === mySlot ? '#4cff4c' : s.team === me.team ? '#40c4ff' : '#ff4040';
+      const ring = s.i === mySlot ? '#4cff4c' : s.team === myTeam ? '#40c4ff' : '#ff4040';
       const h = createHero(s.hero, s.team, { slot: s.ti, bot: s.k === 'b', ring });
       Object.assign(h, { netSlot: s.i, netName: s.name, netLane: s.lane, netDiff: s.diff, netHuman: s.k === 'h' });
       if (s.k === 'b') h.bot = makeBot(h, s.lane, s.diff);
@@ -7315,13 +7333,17 @@ function netBegin(spec, mySlot) {
   G.started = true;
   for (const id of ['lobby', 'select', 'netInv']) { const el = $(id); if (el) el.classList.add('hidden'); }
   $('game').classList.remove('hidden');
+  if (NET.spectating && !G.player) spectateSetup(myTeam);   // before buildHUD — HUD needs a follow target
   buildHUD(); netHudShow();   // net/nethud.js
-  const sx = G.player.x < 0 ? 1 : -1; G.cam.x = G.player.x + 6 * sx; G.cam.z = G.player.z - 8 * sx; G.cam.dist = 58;
+  const P = G.player; if (P) { const sx = P.x < 0 ? 1 : -1; G.cam.x = P.x + 6 * sx; G.cam.z = P.z - 8 * sx; G.cam.dist = 58; }
   const n = t => spec.slots.filter(s => s.team === t).length;
-  msg(`局域网对局：天辉 ${n(RAD)} 名英雄 vs 夜魇 ${n(DIRE)} 名英雄 · 你在${TEAM_NAME[me.team]}`, '#80d8ff');
-  msg(me.team === RAD ? '摧毁夜魇遗迹即可获胜！' : '摧毁天辉遗迹即可获胜！', '#ffd54f');
+  if (NET.spectating) msg(`观战 · 天辉 ${n(RAD)} vs 夜魇 ${n(DIRE)}`, '#80d8ff');
+  else {
+    msg(`局域网对局：天辉 ${n(RAD)} 名英雄 vs 夜魇 ${n(DIRE)} 名英雄 · 你在${TEAM_NAME[me.team]}`, '#80d8ff');
+    msg(me.team === RAD ? '摧毁夜魇遗迹即可获胜！' : '摧毁天辉遗迹即可获胜！', '#ffd54f');
+  }
   msg('Enter 队伍聊天 · Shift+Enter 全体聊天', '#b0bec5');
-  emit('netStart', { slots: spec.slots.length });
+  emit('netStart', { slots: spec.slots.length, spectate: !!NET.spectating });
 }
 
 // ===== net/cmds.js =====
@@ -7347,6 +7369,7 @@ const heroBySlot = s => G.heroes.find(h => h.netSlot === s) || null;
 const netOwns = (h, u) => !!u && !!h && (u === h || (u.owner === h && !!u.controllable));
 // from the local UI: the host queues it for its next tick, a joiner sends it to the host
 function netCmd(c) {
+  if (netIsSpectating()) { err('观战中无法下达指令'); return '观战中'; }
   NET.stats.cmds++;
   if (NET.role === 'host') { c.p = NET.mySlot; LS.pend.push(c); } else netToHost({ t: 'cmd', c });
   return null;
@@ -7429,10 +7452,14 @@ function netInstall() {
     if (type === 'deliver' && !c.bag.length && !(h.stash || []).length) return '没有需要运送的物品';
     return netCmd({ k: 'cour', type, o: h.id });
   };
-  // visual scope + silent while fast-forwarding a rejoin
+  // visual scope + silent while fast-forwarding a rejoin; ffSkipVis also no-ops model/particle work for faster catch-up
   const vis = (f, quiet) => { const w = visScope(f); return quiet ? function () { return NET.ff ? undefined : w.apply(this, arguments); } : w; };
+  // skip particles/floats during catch-up; NEVER skip syncModel (projectile Y) or updateCorpses (removes dead units from `units`)
+  const skipFF = f => { const w = visScope(f); return function () { return (NET.ff && NET.ffSkipVis) ? undefined : w.apply(this, arguments); }; };
   spawnP = vis(spawnP, true); burst = vis(burst, true); ringP = vis(ringP, true); addFloat = vis(addFloat, true); auPlay = vis(auPlay, true);
-  updateParticles = vis(updateParticles); updateFloats = vis(updateFloats); updateCorpses = vis(updateCorpses); syncModel = vis(syncModel);
+  updateParticles = skipFF(updateParticles); updateFloats = skipFF(updateFloats);
+  updateCorpses = vis(updateCorpses);   // visScope → corpse Math.random is native; unit splice still runs during FF
+  syncModel = vis(syncModel);
   O.msg = msg; O.err = err; O.killFeed = killFeed;
   msg = function () { return NET.ff ? undefined : O.msg.apply(this, arguments); };
   err = function () { return NET.ff ? undefined : O.err.apply(this, arguments); };
@@ -7447,8 +7474,8 @@ function netInstall() {
 //   sends a state hash every 30 ticks (net/sync.js). Hidden tabs keep pumping from network messages (no rAF there).
 // Rendering interpolates unit positions between the last two ticks (lsInterp / lsRestore around the real values).
 const NSTEP = 1 / 30, NAHEAD = 15;
-const LS = { n: 0, acc: 0, q: [], pend: [], log: [], hashes: {}, last: 0, ackSent: -1, ip: null, waitT: 0, ffTo: -1, ffLog: null };
-function lsReset() { Object.assign(LS, { n: 0, acc: 0, q: [], pend: [], log: [], hashes: {}, last: performance.now(), ackSent: -1, ip: null, waitT: 0, ffTo: -1, ffLog: null }); }
+const LS = { n: 0, acc: 0, q: [], pend: [], log: [], hashes: {}, last: 0, ackSent: -1, ip: null, waitT: 0, ffTo: -1, ffLog: null, cps: [], cpHits: 0, cpMiss: 0 };
+function lsReset() { Object.assign(LS, { n: 0, acc: 0, q: [], pend: [], log: [], hashes: {}, last: performance.now(), ackSent: -1, ip: null, waitT: 0, ffTo: -1, ffLog: null }); cpReset(); }
 function execTick(n, cmds) {
   lsRestore();
   if (NET.rngLog) { RNG.trace = []; NET.rngLog.set(n, RNG.trace); NET.rngLog.delete(n - 400); }   // debug: who called Math.random per tick
@@ -7459,6 +7486,7 @@ function execTick(n, cmds) {
   });
   LS.n = n + 1; NET.stats.frames++;
   if (n % 30 === 0) syncTick(n);   // net/sync.js
+  if (NET.role === 'host' || NET.role === 'replay') cpTick(n);   // net/checkpoint.js
   if (NET.trace) NET.trace.push([n, stateHash(), RNG.n]);   // debug: per-tick hashes (GameAPI.NET.trace = [])
   if (NET.dumpAll) (NET.dump || (NET.dump = [])).push(units.map(u => [u.id, u.kind, u.team, u.x, u.z, u.hp, u.mana, u.dead, u.order && u.order.type, u.atk && u.atk.phase, u.target && u.target.id, u.atk && u.atk.t, u.model && u.model.position.y, u.facing]));
 }
@@ -7468,6 +7496,7 @@ function netPump() {
   const now = performance.now(), rdt = Math.min(0.25, Math.max(0, (now - LS.last) / 1000)); LS.last = now;
   if (!G.started || G.over) return;
   if (LS.ffTo >= 0) { ffRun(); return; }   // net/drop.js: rejoin catch-up
+  if (NET.role === 'replay') { replayTicks(rdt); return; }   // net/replay.js
   if (NET.role === 'host') hostTicks(rdt); else clientTicks(rdt);
 }
 function minAck() { let m = Infinity; for (const p of NET.peers) if (!p.gone && p.slot >= 0 && p.synced) m = Math.min(m, p.ack); return m; }
@@ -7518,6 +7547,7 @@ function lsRestore() {
 // P key: singleplayer pause as before; in a LAN match only the host pauses (for everyone)
 function togglePause() {
   if (!NET.on) { G.paused = !G.paused; $('pause').classList.toggle('hidden', !G.paused); return; }
+  if (NET.role === 'replay') { NET.paused = G.paused = !NET.paused; replayHudTick(); return; }
   if (NET.role !== 'host') { err('只有房主可以暂停游戏'); return; }
   netSetPause(!NET.paused);
 }
@@ -7536,6 +7566,7 @@ NET_H.pause = (_, m) => netSetPause(m.on);
 //  • A chan silent for NET_DEAD ms counts as disconnected (host: player dropped → bot; joiner: host gone).
 const NET_DEAD = 15000;   // a slow machine's first match frame (shader compile) must not count as a disconnect
 function stateHash() {
+  lsRestore();   // never hash render-interpolated positions (lockstep peers / replay / checkpoints)
   let h = 2166136261 >>> 0;
   const mix = v => { h = Math.imul(h ^ (v | 0), 16777619) >>> 0; };
   mix(G.frame); mix(RNG.n); mix(RNG.a); mix(units.length); mix(projectiles.length);
@@ -7581,6 +7612,85 @@ NET_H.pi = (_, m) => { netToHost({ t: 'po', ts: m.ts }); };
 NET_H.po = (p, m) => { const r = performance.now() - m.ts; p.rtt = p.rtt ? p.rtt * 0.6 + r * 0.4 : r; };
 NET_H.pings = (_, m) => { NET.pings = m.v; const me = m.v.find(x => x[0] === NET.me); NET.myPing = me ? me[1] : 0; };
 
+// ===== net/checkpoint.js =====
+// net/checkpoint.js — B11 follow-up: periodic lockstep checkpoints for verified / faster rejoin.
+// Full sim state cannot be serialized (timers / projectile onHit / effect.update closures + three.js). Checkpoints are
+// therefore {n, hash} waypoints on the order log: rejoin still starts from seed+log, but (1) catch-up verifies the hash
+// at each checkpoint (early desync abort), (2) FF skips expensive visual work and uses a larger time budget so wall-clock
+// catch-up is faster than the original 45 ms/frame path, (3) resume carries `cps` so the UI can show progress by checkpoint.
+// Future: a quiet-moment state blob could restore at cp.n and only apply the tail of the log (LS.cps[i].blob reserved).
+const CP_EVERY = 300;   // 10 game seconds at NSTEP=1/30
+function cpReset() { LS.cps = []; LS.cpHits = 0; LS.cpMiss = 0; }
+function cpTick(n) {
+  if (!n || n % CP_EVERY !== 0) return;   // skip tick 0 (boot); first marker at CP_EVERY
+  // reuse syncTick's hash when available (same tick, identical call order on host)
+  const h = ((LS.hashes && LS.hashes[n] !== undefined) ? LS.hashes[n] : stateHash()) >>> 0;
+  LS.cps.push({ n, hash: h, i: LS.log.length });
+  if (LS.cps.length > 40) LS.cps.shift();
+}
+function cpAt(n) { return (LS.cps || []).find(c => c.n === n) || null; }
+function cpLatest() { const a = LS.cps || []; return a.length ? a[a.length - 1] : null; }
+function cpVerify(n, hash) {
+  const c = cpAt(n); if (!c) return null;
+  const want = hash >>> 0, got = c.hash >>> 0;
+  const alt = LS.hashes && LS.hashes[n];
+  const ok = got === want || (alt !== undefined && (alt >>> 0) === want);
+  if (ok) LS.cpHits++; else LS.cpMiss++;
+  return ok;
+}
+// apply host-sent checkpoint list on a rejoiner / spectator (before FF)
+function cpLoad(list) {
+  LS.cps = Array.isArray(list) ? list.map(c => ({ n: c.n | 0, hash: c.hash >>> 0, i: c.i | 0 })) : [];
+  LS.cpHits = 0; LS.cpMiss = 0;
+}
+function cpInfo() {
+  const last = cpLatest();
+  return { every: CP_EVERY, count: (LS.cps || []).length, latest: last, hits: LS.cpHits | 0, miss: LS.cpMiss | 0, ffSkipVis: !!NET.ffSkipVis };
+}
+
+// ===== net/spectate.js =====
+// net/spectate.js — B11 follow-up: watch a LAN match without controlling a hero (mid-match late join, or replay).
+// Spectator: NET.spectating, netSlot -1, G.player is a camera/HUD follow target only; netCmd rejects all player commands.
+// Mid-match: if hello arrives and no dropped human hero is free, host sends resume with spectate:true (see net/drop.js).
+function netIsSpectating() { return !!(NET.spectating || NET.role === 'replay'); }
+function netCanCommand() { return NET.on && !netIsSpectating() && NET.role !== 'replay'; }
+function spectateFollow(h) {
+  if (!h || h.dead && !G.heroes.some(x => !x.dead)) { /* keep */ }
+  if (!h) h = G.heroes.find(x => !x.dead) || G.heroes[0];
+  if (!h) return;
+  G.player = h; G.selected = h;
+  if (typeof selectUnits === 'function') try { selectUnits([h]); } catch (e) { /* ctl may be mid-init */ }
+  msg(`观战：跟随 ${h.netName || h.def.name}`, '#80d8ff');
+}
+function spectateCycle(dir) {
+  if (!G.heroes.length) return;
+  const live = G.heroes.slice();
+  let i = live.indexOf(G.player); if (i < 0) i = 0;
+  i = (i + (dir || 1) + live.length * 8) % live.length;
+  spectateFollow(live[i]);
+}
+function spectateSetup(followTeam) {
+  NET.spectating = true; NET.mySlot = -1;
+  const pref = followTeam === undefined ? RAD : followTeam;
+  const h = G.heroes.find(x => x.team === pref && !x.dead) || G.heroes.find(x => !x.dead) || G.heroes[0];
+  spectateFollow(h);
+  msg('观战模式：无法下达指令。点击英雄或按 [ / ] 切换跟随目标。F1 跟随自己阵营首位。', '#80d8ff');
+}
+// host: late join with no free dropped hero → spectator
+function netSpectateJoin(p) {
+  if (G.over) { chanSend(p.ch, { t: 'bye', why: '对局已经结束' }); setTimeout(() => chanClosed(p.ch, 'full'), 300); return; }
+  p.slot = -1; p.synced = false; p.ack = -1; p.spectate = true;
+  chanSend(p.ch, { t: 'resume', spec: NET.spec, slot: -1, log: LS.log, upto: LS.n - 1, speed: NET.speed, paused: NET.paused, pid: p.pid, spectate: true, cps: LS.cps || [] });
+  chatLine({ sys: true, text: `${p.name} 以观战身份加入` });
+}
+function spectateOnKey(e) {
+  if (!netIsSpectating() || !G.started) return false;
+  if (e.code === 'BracketLeft') { spectateCycle(-1); return true; }
+  if (e.code === 'BracketRight') { spectateCycle(1); return true; }
+  if (e.code === 'F1') { spectateFollow(G.heroes.find(h => h.team === (G.player && G.player.team)) || G.heroes[0]); return true; }
+  return false;
+}
+
 // ===== net/drop.js =====
 // net/drop.js — B11 disconnects and rejoining.
 //  • Host loses a joiner: in the lobby the seat is freed; in a match a {k:'drop'} command hands the hero to a bot (same
@@ -7613,28 +7723,42 @@ function netRejoin(p) {
   const free = G.heroes.filter(h => h.netGone && h.netHuman);
   const h = free.find(x => x.netName === p.name) || free[0];
   if (!h || G.over) { chanSend(p.ch, { t: 'bye', why: G.over ? '对局已经结束' : '对局进行中，没有可接管的掉线英雄' }); setTimeout(() => chanClosed(p.ch, 'full'), 300); return; }
-  p.slot = h.netSlot; p.synced = false; p.ack = -1;
-  chanSend(p.ch, { t: 'resume', spec: NET.spec, slot: p.slot, log: LS.log, upto: LS.n - 1, speed: NET.speed, paused: NET.paused, pid: p.pid });
+  p.slot = h.netSlot; p.synced = false; p.ack = -1; p.spectate = false;
+  chanSend(p.ch, { t: 'resume', spec: NET.spec, slot: p.slot, log: LS.log, upto: LS.n - 1, speed: NET.speed, paused: NET.paused, pid: p.pid, spectate: false, cps: LS.cps || [] });
   LS.pend.push({ k: 'human', s: p.slot, p: -1, name: p.name });
   chatLine({ sys: true, text: `${p.name} 正在重新加入（接管 ${h.def.name}，同步进度中…）` });
 }
 NET_H.resume = (_, m) => {
-  NET.me = m.pid; NET.speed = m.speed || 1;
-  netBegin(m.spec, m.slot);
-  LS.ffLog = new Map(m.log); LS.ffTo = m.upto; NET.ff = true; NET.ffTotal = m.upto + 1;
+  NET.me = m.pid; NET.speed = m.speed || 1; NET.spectating = !!m.spectate;
+  // mark FF before netBegin so pollers never see started&&!ff with work still pending
+  const upto = Math.max(0, m.upto | 0);
+  const logMap = new Map(m.log || []);
+  NET.ff = true; NET.ffSkipVis = true; NET.ffTotal = upto + 1; NET.ffMs = 0; NET.ffTicks = 0;
+  netBegin(m.spec, m.slot);   // lsReset clears ffTo — re-apply below
+  cpLoad(m.cps || []);
+  LS.ffLog = logMap; LS.ffTo = upto;
   if (m.paused) netSetPause(true);
   const o = $('netFF'); if (o) o.classList.remove('hidden');
 };
-// rejoin catch-up: re-simulate every tick up to the host's tick at the time of joining, ~45 ms of work per frame
+// rejoin / spectator catch-up: re-simulate ticks; skip-vis + larger budget vs the original 45 ms path
 function ffRun() {
-  const t0 = performance.now(), budget = document.hidden ? 200 : 45;
-  while (LS.n <= LS.ffTo && performance.now() - t0 < budget) execTick(LS.n, LS.ffLog.get(LS.n) || []);
-  const el = $('netFFTxt'); if (el) el.textContent = `正在同步对局进度… ${Math.floor(LS.n / NET.ffTotal * 100)}%（${fmtTime(G.time)}）`;
+  const t0 = performance.now(), budget = document.hidden ? 800 : (NET.ffSkipVis ? 250 : 45);
+  let n0 = LS.n;
+  while (LS.n <= LS.ffTo && performance.now() - t0 < budget) {
+    const n = LS.n;
+    execTick(n, LS.ffLog.get(n) || []);
+    if (n && LS.cps && LS.cps.length && n % CP_EVERY === 0) cpVerify(n, stateHash());
+  }
+  NET.ffMs += performance.now() - t0; NET.ffTicks += LS.n - n0;
+  const cp = cpLatest(), pct = Math.floor(LS.n / NET.ffTotal * 100);
+  const el = $('netFFTxt'); if (el) el.textContent = `正在同步对局进度… ${pct}%（${fmtTime(G.time)}）` + (cp ? ` · 检查点 ${LS.cpHits}/${LS.cps.length}` : '');
   if (LS.n > LS.ffTo) {
-    LS.ffTo = -1; LS.ffLog = null; NET.ff = false; LS.acc = 0;
+    LS.ffTo = -1; LS.ffLog = null; NET.ff = false; LS.acc = 0; NET.ffSkipVis = false;
     const o = $('netFF'); if (o) o.classList.add('hidden');
     floats.length = 0;
-    msg('同步完成，欢迎回来！', '#7cdc6a'); netToHost({ t: 'a', n: LS.n - 1 });
+    if (NET.spectating) { spectateSetup(); msg('观战同步完成', '#7cdc6a'); }
+    else msg('同步完成，欢迎回来！', '#7cdc6a');
+    netToHost({ t: 'a', n: LS.n - 1 });
   }
 }
 // joiner: the host's chan closed
@@ -7648,6 +7772,146 @@ function netShowEnd(text) {
   if (NET.started) { G.halt = true; G.paused = true; }
   const b = $('netEnd'); if (!b) return;
   $('netEndTxt').textContent = text; b.classList.remove('hidden');
+}
+
+// ===== net/replay.js =====
+// net/replay.js — B11 follow-up: record the lockstep order log during a LAN (or local lockstep) match and play it back.
+// Format {v:1, build, spec, log:[[n,cmds],...], cps:[{n,hash,i}], meta:{t,names,duration}}. Playback uses role 'replay'
+// (host-like ticks driven by the log, spectator controls). No WebRTC. Hotkeys while playing: P pause, -/= speed, Esc end.
+const REPLAY = { rec: null, last: null };
+function replayCapture() {
+  if (!NET.spec || !LS) return null;
+  const names = (NET.spec.slots || []).map(s => s.name + ':' + (s.hero || '?'));
+  return {
+    v: 1, build: NET_VER, spec: NET.spec, log: LS.log.slice(), cps: (LS.cps || []).slice(),
+    meta: { t: Date.now(), duration: G.time, names, ticks: LS.n, seed: NET.spec.seed },
+  };
+}
+function replaySaveMem() { REPLAY.last = replayCapture(); return REPLAY.last; }
+function replayExport() {
+  const r = REPLAY.last || replayCapture(); if (!r) { err('没有可保存的录像'); return null; }
+  REPLAY.last = r;
+  const blob = new Blob([JSON.stringify(r)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `voxel-dota-replay-${r.meta.ticks || 0}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  msg('录像已下载', '#7cdc6a'); return r;
+}
+function replayValidate(r) {
+  if (!r || r.v !== 1 || !r.spec || !Array.isArray(r.log)) throw new Error('无效的录像文件');
+  if (r.build && r.build !== NET_VER) throw new Error('录像版本与当前游戏不一致，请使用同一版本打开');
+  return r;
+}
+function replayStart(r) {
+  r = replayValidate(r);
+  if (G.started) { err('请先结束当前对局再播放录像'); return false; }
+  REPLAY.rec = r; NET.on = true; NET.role = 'replay'; NET.me = -1; NET.spectating = true; NET.started = false; NET.speed = 1; NET.paused = false;
+  NET.spec = r.spec; NET.ffSkipVis = false;   // play with visuals
+  rngInstall(); netInstall(); rngSeed(r.spec.seed); lsReset(); cpLoad(r.cps || []);
+  const map = new Map(r.log);
+  LS.ffLog = map;   // reused as the source of commands per tick
+  simRun(() => {
+    for (const u of units) u.acq = Math.random() * 0.3;
+    for (const s of r.spec.slots) {
+      const ring = s.team === RAD ? '#40c4ff' : '#ff4040';
+      const h = createHero(s.hero, s.team, { slot: s.ti, bot: s.k === 'b', ring });
+      Object.assign(h, { netSlot: s.i, netName: s.name, netLane: s.lane, netDiff: s.diff, netHuman: s.k === 'h' });
+      if (s.k === 'b') h.bot = makeBot(h, s.lane, s.diff);
+    }
+    for (const h of G.heroes) spawnCourier(h);
+  });
+  G.started = true; NET.started = true; NET.mySlot = -1;
+  for (const id of ['lobby', 'select', 'netInv', 'repLoad']) { const el = $(id); if (el) el.classList.add('hidden'); }
+  $('game').classList.remove('hidden');
+  spectateSetup(RAD); buildHUD(); netHudShow(); replayHudShow(true);
+  const h0 = G.player; if (h0) { const sx = h0.x < 0 ? 1 : -1; G.cam.x = h0.x + 6 * sx; G.cam.z = h0.z - 8 * sx; G.cam.dist = 58; }
+  msg(`录像回放 · ${fmtTime(r.meta.duration || 0)} · ${r.meta.names ? r.meta.names.join('、') : ''}`, '#80d8ff');
+  msg('P 暂停 · -/= 减速/加速 · [ / ] 切换跟随 · Esc 退出录像', '#b0bec5');
+  emit('replayStart', { ticks: r.meta.ticks });
+  return true;
+}
+function replayTicks(rdt) {
+  if (NET.paused) { LS.acc = 0; return; }
+  const end = REPLAY.rec ? (REPLAY.rec.meta.ticks | 0) : -1;
+  if (end >= 0 && LS.n >= end) { LS.acc = 0; if (!NET.replayEnded) { NET.replayEnded = true; msg('录像播放完毕', '#ffd54f'); NET.paused = G.paused = true; replayHudTick(); } return; }
+  LS.acc = Math.min(LS.acc + rdt * NET.speed, NSTEP * 10 * NET.speed);
+  let k = 0;
+  while (LS.acc >= NSTEP && !G.over && k < 40 * NET.speed && (end < 0 || LS.n < end)) {
+    const n = LS.n, c = (LS.ffLog && LS.ffLog.get(n)) || [];
+    execTick(n, c); LS.acc -= NSTEP; k++;
+  }
+  if (end >= 0 && LS.n >= end && !NET.replayEnded) { NET.replayEnded = true; msg('录像播放完毕', '#ffd54f'); NET.paused = G.paused = true; replayHudTick(); }
+}
+function replayStop() { location.reload(); }
+
+// ===== net/replayui.js =====
+// net/replayui.js — menu tab + in-game HUD for LAN replays / spectator follow hints.
+function replayHudShow(on) {
+  const el = $('repHud'); if (!el) return;
+  el.classList.toggle('hidden', !on);
+  if (on) {
+    el.innerHTML = `<span id="repTxt">录像</span>
+      <button class="mcbtn" id="repPause">暂停</button>
+      <button class="mcbtn" id="repSlow">减速</button>
+      <button class="mcbtn" id="repFast">加速</button>
+      <button class="mcbtn" id="repSave">保存录像</button>
+      <button class="mcbtn" id="repQuit">退出</button>`;
+    $('repPause').onclick = () => { NET.paused = G.paused = !NET.paused; replayHudTick(); };
+    $('repSlow').onclick = () => { NET.speed = Math.max(0.25, +(NET.speed / 2).toFixed(2)); replayHudTick(); };
+    $('repFast').onclick = () => { NET.speed = Math.min(16, +(NET.speed * 2).toFixed(2)); replayHudTick(); };
+    $('repSave').onclick = () => replayExport();
+    $('repQuit').onclick = () => replayStop();
+    replayHudTick();
+  }
+}
+function replayHudTick() {
+  const t = $('repTxt'); if (!t) return;
+  if (NET.role === 'replay') {
+    t.textContent = `录像 ${fmtTime(G.time)} · ×${NET.speed}${NET.paused ? ' · 暂停' : ''}`;
+    if ($('repPause')) $('repPause').textContent = NET.paused ? '继续' : '暂停';
+  } else if (NET.spectating) t.textContent = `观战 · 跟随 ${(G.player && (G.player.netName || G.player.def.name)) || '?'}`;
+}
+function buildReplayMenu() {
+  const tabs = $('modeTabs'); if (!tabs) return;
+  const t = document.createElement('div'); t.className = 'mt'; t.id = 'mtReplay'; t.dataset.m = 'replay'; t.textContent = '观看录像';
+  tabs.appendChild(t);
+  t.addEventListener('click', () => {
+    if (G.started) return;
+    $('lobby').classList.add('hidden');
+    const box = $('repLoad'); if (!box) return;
+    box.classList.remove('hidden');
+  });
+  let box = $('repLoad');
+  if (!box) {
+    box = document.createElement('div'); box.id = 'repLoad'; box.className = 'hidden panel';
+    box.innerHTML = `<h2>观看录像</h2>
+      <div class="lbNote">选择本机保存的 <code>.json</code> 录像文件（联机对局中可点「保存录像」导出）。回放不连接网络。</div>
+      <input type="file" id="repFile" accept="application/json,.json">
+      <div id="repStatus"></div>
+      <button class="mcbtn" id="repBack">返回</button>`;
+    document.body.appendChild(box);
+    $('repBack').onclick = () => box.classList.add('hidden');
+    $('repFile').onchange = async ev => {
+      const f = ev.target.files && ev.target.files[0]; if (!f) return;
+      const st = $('repStatus');
+      try {
+        const text = await f.text(); const r = replayValidate(JSON.parse(text));
+        st.textContent = `已加载：${(r.meta && r.meta.names || []).join('、') || '录像'} · ${fmtTime((r.meta && r.meta.duration) || 0)} · ${(r.log || []).length} 条指令`;
+        st.classList.remove('bad');
+        replayStart(r);
+      } catch (e) { st.textContent = '✘ ' + e.message; st.classList.add('bad'); }
+    };
+  }
+}
+function bindReplayKeys() {
+  addEventListener('keydown', e => {
+    if (!G.started) return;
+    if (spectateOnKey(e)) { e.preventDefault(); return; }
+    if (NET.role !== 'replay') return;
+    if (e.code === 'Escape') { e.preventDefault(); replayStop(); return; }
+    if (e.code === 'Minus') { NET.speed = Math.max(0.25, +(NET.speed / 2).toFixed(2)); replayHudTick(); }
+    if (e.code === 'Equal') { NET.speed = Math.min(16, +(NET.speed * 2).toFixed(2)); replayHudTick(); }
+  });
 }
 
 // ===== net/chat.js =====
@@ -7702,30 +7966,40 @@ function bindChat() {
 
 // ===== net/nethud.js =====
 // net/nethud.js — B11 in-game LAN panel (top right, under the K/D/A box): role, players, ping, waiting-for-players notice,
-// and for the host the 邀请 / 重连 button (opens the invite panel; a joiner who connects mid-match takes over a dropped hero).
+// host 邀请 / 重连, and 保存录像 (order-log replay). Spectators see a 观战 tag.
 function netHudShow() {
   const el = $('netHud'); if (!el) return; el.classList.remove('hidden');
-  el.innerHTML = `<span id="nhTxt">联机</span>${NET.role === 'host' ? '<button class="mcbtn" id="nhInv" title="生成邀请码：掉线的玩家可以用它重新加入">邀请 / 重连</button>' : ''}`;
+  const hostBtn = NET.role === 'host' ? '<button class="mcbtn" id="nhInv" title="生成邀请码：掉线的玩家可以用它重新加入；满员时新人将观战">邀请 / 重连</button>' : '';
+  const saveBtn = '<button class="mcbtn" id="nhRep" title="导出本局指令录像（JSON）">保存录像</button>';
+  el.innerHTML = `<span id="nhTxt">联机</span>${hostBtn}${saveBtn}`;
   if ($('nhInv')) $('nhInv').addEventListener('click', () => invOpen($('netInv').classList.contains('hidden')));
+  if ($('nhRep')) $('nhRep').addEventListener('click', () => { replaySaveMem(); replayExport(); });
   netHudTick();
 }
 function netHudTick() {
   const t = $('nhTxt'); if (!t || !NET.started) return;
+  if (NET.role === 'replay') { replayHudTick(); return; }
   const live = NET.peers.filter(p => !p.gone && p.slot >= 0);
+  const specs = NET.peers.filter(p => !p.gone && p.slot < 0);
   let s;
-  if (NET.role === 'host') {
+  if (NET.spectating) s = `观战 · 延迟 ${NET.myPing !== undefined ? NET.myPing + ' ms' : '…'}`;
+  else if (NET.role === 'host') {
     const worst = live.reduce((a, p) => Math.max(a, p.rtt), 0);
-    s = `房主 · ${live.length + 1} 名玩家` + (live.length ? ` · 延迟 ≤${Math.round(worst)} ms` : '');
+    s = `房主 · ${live.length + 1} 名玩家` + (specs.length ? ` · ${specs.length} 观战` : '') + (live.length ? ` · 延迟 ≤${Math.round(worst)} ms` : '');
     if (LS.waitT > 1) { const slow = live.filter(p => p.synced && LS.n - p.ack > NAHEAD).map(p => p.name); s += ` · 等待 ${slow.join('、') || '玩家'}…`; }
   } else s = `联机 · 延迟 ${NET.myPing !== undefined ? NET.myPing + ' ms' : '…'}`;
   if (NET.desync.length) s += ' · ⚠ 不同步';
+  const cp = typeof cpLatest === 'function' ? cpLatest() : null;
+  if (cp && NET.role === 'host') s += ` · 检查点@${cp.n}`;
   t.textContent = s; t.classList.toggle('warn', LS.waitT > 1 || NET.desync.length > 0);
+  if (NET.spectating) replayHudTick();
 }
 
 // ===== net/debugnet.js =====
 // net/debugnet.js — B11 test / debug hooks on window.GameAPI (tests drive the real lobby UI and read these).
 Object.assign(GameAPI, {
-  NET, LOB, LS, RNG, sdpParse, sdpBuild, encodeCode, decodeCode, stateHash, netStartGame, netSetPause, togglePause, chatSend, invNew, lobbyAct,
+  NET, LOB, LS, RNG, REPLAY, sdpParse, sdpBuild, encodeCode, decodeCode, stateHash, netStartGame, netBegin, netSetPause, togglePause, chatSend, invNew, lobbyAct,
+  cpInfo, cpLatest, cpLoad, cpVerify, CP_EVERY, replayCapture, replaySaveMem, replayStart, replayValidate, replayExport, spectateFollow, spectateCycle, netIsSpectating,
   netOrder(o, u) { return issueOrder(u || G.player, o); },   // the live (wrapped) binding → a LAN command
   netCast(i, t) { return orderCast(G.player, i, t); }, netLearn(i) { return learnSkill(i); },
   // headless 'human': every 1.5 s the local hero learns skills, buys, casts on visible enemy heroes, attack-moves (all via commands)
@@ -7748,7 +8022,7 @@ Object.assign(GameAPI, {
   netUnits(filter) { lsRestore(); return units.filter(u => !u.dead && (!filter || filter(u))).map(u => [u.id, +u.x.toFixed(3), +u.z.toFixed(3), +u.hp.toFixed(2)]); },
   netHeroes() { lsRestore(); return G.heroes.map(h => ({ id: h.id, hero: h.def.id, slot: h.netSlot, team: h.team, x: h.x, z: h.z, hp: h.hp, gold: h.gold, items: h.items.map(i => i && i.id), bot: !!h.bot, gone: !!h.netGone, name: h.netName })); },
   netKill() { if (NET.role === 'host') for (const p of NET.peers) chanClosed(p.ch, 'closed'); else chanClosed(NET.hostCh, 'closed'); },
-  netInfo() { return { role: NET.role, me: NET.me, slot: NET.mySlot, tick: LS.n, q: LS.q.length, peers: NET.peers.map(p => ({ pid: p.pid, slot: p.slot, ack: p.ack, rtt: p.rtt, gone: p.gone, synced: p.synced, name: p.name })), desync: NET.desync.slice(), ff: NET.ff, ping: NET.myPing, stats: NET.stats, rng: RNG.n }; },
+  netInfo() { return { role: NET.role, me: NET.me, slot: NET.mySlot, tick: LS.n, q: LS.q.length, peers: NET.peers.map(p => ({ pid: p.pid, slot: p.slot, ack: p.ack, rtt: p.rtt, gone: p.gone, synced: p.synced, name: p.name, spectate: !!p.spectate })), desync: NET.desync.slice(), ff: NET.ff, ping: NET.myPing, stats: NET.stats, rng: RNG.n, spectating: !!NET.spectating, cps: (LS.cps || []).length, ffMs: NET.ffMs, ffTicks: NET.ffTicks, cpHits: LS.cpHits, cpMiss: LS.cpMiss }; },
 });
 NET_H.speed = (_, m) => { NET.speed = m.s; };
 

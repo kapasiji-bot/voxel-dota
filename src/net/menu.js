@@ -5,7 +5,7 @@ function buildNetMenu() {
   const tabs = document.createElement('div'); tabs.id = 'modeTabs';
   tabs.innerHTML = '<div class="mt on" data-m="sp">单人游戏</div><div class="mt" id="mtHost" data-m="host">创建局域网房间</div><div class="mt" id="mtJoin" data-m="join">加入局域网房间</div>';
   document.querySelector('#select .sub').after(tabs);
-  tabs.addEventListener('click', e => { const t = e.target.closest('.mt'); if (t && t.dataset.m !== 'sp') netOpenLobby(t.dataset.m); });
+  tabs.addEventListener('click', e => { const t = e.target.closest('.mt'); if (!t) return; if (t.dataset.m === 'sp') return; if (t.dataset.m === 'replay') return; netOpenLobby(t.dataset.m); });
   $('lobby').innerHTML = `<h1>局域网联机</h1>
     <div id="lbHead"><label>你的名字 <input id="lbName" type="text" maxlength="16" autocomplete="off" spellcheck="false"></label><span id="lbRole"></span><button class="mcbtn" id="lbBack">返回主菜单</button></div>
     <div id="lbJoin" class="hidden panel">
@@ -13,7 +13,7 @@ function buildNetMenu() {
       <button class="mcbtn" id="jGo">生成应答码</button>
       <div id="jAnsBox" class="hidden"><div class="lbStep"><b>第 2 步</b> 把下面的<em>应答码</em>复制发回给房主，等房主粘贴后会自动进入房间：</div><div class="row"><textarea id="jAns" readonly></textarea><button class="mcbtn" id="jCopy">复制应答码</button></div></div>
       <div id="jStatus"></div>
-      <div class="lbNote">所有玩家需连接<b>同一个局域网 / Wi-Fi</b>，并打开同一个游戏文件或网址；推荐使用最新版 Chrome / Edge。</div>
+      <div class="lbNote">所有玩家需连接<b>同一个局域网 / Wi-Fi</b>，并打开同一个游戏文件或网址；推荐使用最新版 Chrome / Edge。对局进行中加入且没有可接管的掉线英雄时，将以<strong>观战</strong>身份进入。</div>
     </div>
     <div id="lbRoom" class="hidden">
       <div id="lbTeams"><div class="lbTeam" id="lbRad"></div><div class="lbTeam" id="lbDire"></div></div>
@@ -27,8 +27,9 @@ function buildNetMenu() {
     <div class="lbNote">每位朋友需要一个单独的邀请码。朋友在「加入局域网房间」里粘贴邀请码，生成应答码发回给你。</div>
     <button class="mcbtn" id="invNew">生成新的邀请码</button><div id="invList"></div>`;
   $('netEnd').innerHTML = '<div class="panel"><h2>联机已结束</h2><div id="netEndTxt"></div><button class="mcbtn big" onclick="location.reload()">返回主菜单</button></div>';
-  $('netFF').innerHTML = '<div class="panel"><div id="netFFTxt">正在同步对局进度…</div><div class="lbNote">正在快速重演本局已发生的所有操作，请稍候。</div></div>';
+  $('netFF').innerHTML = '<div class="panel"><div id="netFFTxt">正在同步对局进度…</div><div class="lbNote">正在根据指令日志快速重演（检查点加速校验）；请稍候。</div></div>';
   bindLobby(); bindInvite(); bindChat();   // net/lobbyui.js, net/invite.js, net/chat.js
+  buildReplayMenu(); bindReplayKeys();   // net/replayui.js
   $('lbBack').addEventListener('click', () => { if (NET.role) location.reload(); else { $('lobby').classList.add('hidden'); } });
   $('lbName').value = localStorage.getItem('voxdota.name') || '玩家' + (100 + ((vrand() * 900) | 0));
   $('lbName').addEventListener('change', () => { const n = lbName(); localStorage.setItem('voxdota.name', n); NET.name = n; if (NET.role) lobbyAct('name', { name: n }); });

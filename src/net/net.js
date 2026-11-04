@@ -11,6 +11,7 @@ const NET = {
   on: false, role: '', me: -1, mySlot: -1, name: '', peers: [], hostCh: null, nextPid: 1, invites: {}, nextInv: 1,
   fake: /[?&]netfake=1/.test(location.search), fakeLag: 0, speed: 1, started: false, paused: false, ff: false,
   spec: null, ua: browserTag(), desync: [], ended: false, stats: { cmds: 0, frames: 0 },
+  spectating: false, ffSkipVis: false, ffMs: 0, ffTicks: 0, replayEnded: false,
 };
 const NET_H = {};
 const netPeer = pid => NET.peers.find(p => p.pid === pid) || null;
@@ -32,7 +33,10 @@ function netAddPeer(ch) {
 NET_H.hello = (p, m) => {
   p.name = String(m.name || '玩家').slice(0, 16); p.ua = String(m.ua || '?').slice(0, 12);
   if (m.v !== NET_VER) { chanSend(p.ch, { t: 'bye', why: '游戏版本不一致：请所有人打开同一个游戏文件 / 网址，并刷新页面后重试。' }); setTimeout(() => chanClosed(p.ch, 'version'), 300); return; }
-  if (NET.started) { netRejoin(p); return; }   // net/drop.js
+  if (NET.started) {   // net/drop.js — take over a dropped hero, else join as spectator
+    if (m.spectate || !G.heroes.some(h => h.netGone && h.netHuman)) netSpectateJoin(p); else netRejoin(p);
+    return;
+  }
   if (lobbyAdd(p.pid, p.name, p.ua) < 0) { chanSend(p.ch, { t: 'bye', why: '房间已满（最多 10 名玩家）' }); setTimeout(() => chanClosed(p.ch, 'full'), 300); return; }
   chanSend(p.ch, { t: 'welcome', pid: p.pid, host: NET.name });
   lobbyChanged(); netSys(`${p.name} 加入了房间`);

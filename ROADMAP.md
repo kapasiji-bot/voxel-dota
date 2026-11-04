@@ -30,7 +30,8 @@ Heroes come in batches of 3–4. Each batch is grouped by the engine features it
 | **B16: classic utility / initiators ✅ done** | prefer existing AB (teleport, groundArea, invis, projectile, stun); tiny `MODS.chrono` pause state for Chronosphere | 虚空假面 Faceless Void (时间漫游 / 时间膨胀 / 时间锁定 / 时间结界); 米拉娜 Mirana (星落 / 神圣之箭 / 跳跃 / 月之暗面); 半人马酋长 Centaur (马蹄践踏 / 双刃剑 / 反击 / 奔袭冲撞); 斯拉达 Slardar (守卫冲刺 / 鱼人碎击 / 野性穿刺 / 腐蚀雾霾) — **33 heroes**; tests `b16.js` + screenshots 62–65 |
 | **B17: classic carries / initiators ✅ done** | prefer existing AB (delayedArea, knockup, cleave, invis, illusion, recast, absorb barrier); remnant place+activate via recast window | 昆卡 Kunkka (洪流 / 潮汐使者 / X标记 / 幽灵船); 幽鬼 Spectre (幽鬼之刃 / 荒芜 / 折射 / 缠绕); 编织者 Weaver (虫群 / 缩地 / 连击 / 时光倒流); 灰烬之灵 Ember Spirit (袖中一剑 / 烈火罩 / 火之余烬 / 火炸弹) — **37 heroes**; tests `b17.js` + screenshots 66–69 |
 | **B18: classic int casters ✅ done** | prefer existing AB (chain, pull, groundArea, channel silence, summon wards, absorb barrier, CD reset) | 风暴之灵 Storm Spirit (残影 / 电能漩涡 / 超负荷 / 球状闪电); 干扰者 Disruptor (雷霆一击 / 时光窥视 / 动能力场 / 静态风暴); 暗影萨满 Shadow Shaman (以太冲击 / 妖术 / 枷锁 / 群蛇守卫); 修补匠 Tinker (激光 / 热导飞弹 / 防御矩阵 / 再装填) — **41 heroes**; tests `b18.js` + screenshots 70–73 |
-| B11 follow-ups | **internet play needs a signalling server + STUN/TURN** (codes currently only work on one LAN); host migration; spectator mode; replays from the order log; faster rejoin (state checkpoints) | planned |
+| **B11 follow-ups ✅ LAN replay / spectate / checkpoints** | order-log replays (`net/replay.js`, JSON `{v:1,spec,log,cps,meta}`); mid-match spectator join (`slot:-1`, cmds blocked); checkpoint waypoints every 300 ticks + skip-vis FF (larger budget) for faster verified rejoin; tests `b26.js` | done |
+| B11 internet / migration | **internet play needs a signalling server + STUN/TURN** (codes currently only work on one LAN); host migration; full state-blob restore at a checkpoint (sim still not serializable — checkpoints are hash waypoints today) | planned |
 | **Items polish ✅ batch 1** | Luxury late-game items (no new heroes): 刷新球 Refresher Orb, 玲珑心 Octarine Core (CD reduction + spell lifesteal hooks), 紫怨 Orchid, 血棘 Bloodthorn, 守护仙灵 Guardian Greaves; shop/recipes/tooltips; bot role builds + actives | done |
 | **Items polish ✅ batch 2** | Aghanim's Scepter / Shard **ally gifting**: **T** (no summon) → click ally (`giftItem`, walk into range); far click uses own courier (`giftViaCourier` / `c.giftTo`); support bots gift bought scepter/shard to carry (`ai/bot/gift.js`); HELP + shop desc | done |
 | **Select UX ✅ batch 3** | Hero select search (CN / EN / id) + primary attribute + role (carry/support/tank via `ai.role` or primary fallback) filters; count badge; modular in `ui/select.js` | done |
@@ -38,14 +39,14 @@ Heroes come in batches of 3–4. Each batch is grouped by the engine features it
 | **Jungle/AI polish ✅ batch 5** | Bot jungle **stack** (drag neutrals out of `CAMP_BOX` before minute spawn); no invented pull camps (stack+farm); **courier snipe** when safe; Tinker **Rearm** (`ai.rearm`, botBigSpells + keepChannel + cheap rearm combo) | done |
 | **Shared ally courier ✅ batch 6** | Teammates issue deliver/home/secret on an ally courier (LAN lockstep `cour` + owner id); stash/bag/gold stay with the owner; F3 / Shift+F3 + HUD ownership; click/Tab/F2 select team couriers | done |
 | **Render perf ✅ batch 7** | Unit models → 1–2 **SkinnedMesh**es per unit (bones = parts); camera-fitted shadow frustum; near-cam castShadow cull | done |
-| Later polish | More item-aware bot recipes; LAN replay / spectate / checkpoints | planned |
+| Later polish | More item-aware bot recipes; indicators/feel; creep GPU instancing; neutrals/bot polish | planned |
 
 ## Suggested next steps (older notes)
-- **Items / UI / Roshan / jungle / courier / render polish:** batches 1–7 done. Gameplay + first render pass complete; next optional: LAN replay / spectate / checkpoints.
+- **Items / UI / Roshan / jungle / courier / render polish:** batches 1–7 done. LAN replay / spectate / checkpoints done (B11 follow-ups). Next optional: indicators/feel, creep GPU instancing.
 - **Sound (B9 follow-ups):** voice lines / recorded announcer, per-hero attack timbres, reverb in the Roshan pit, music.
 - **Teamwork (B10/B12 follow-ups):** item-aware combos (BKB → Black Hole, Blink → Eul's), dynamic ward spots; smoke/buyback/glyph/lane-farmer already in B12.
 - **Jungle (B8 follow-ups):** Aegis deny + Refresher Shard (batch 4); bots stacking + courier snipe + Tinker Rearm (batch 5); shared ally courier (batch 6). Still open: neutral item drops.
 - **Audio:** Web Audio synth SFX (attacks, spell casts, crits, kills) and a mute toggle; still fully offline.
 - **Bots:** more item-aware combos (BKB → Black Hole); high-ground siege micro; dynamic ward spots.
 - **Perf:** ✅ batch 7 — per-unit SkinnedMesh merge (parts→bones) + camera-fitted shadow frustum + near-cam shadow casters. Still open: true GPU instancing for identical idle creeps, atlas LODs.
-- **Multiplayer:** LAN lockstep done (B11). Next: a signalling server + STUN/TURN for internet play, spectator mode, replays from the order log, checkpointed rejoin, host migration.
+- **Multiplayer:** LAN lockstep + replay / spectate / checkpointed rejoin done (B11 + follow-ups). Next: signalling server + STUN/TURN for internet play; host migration; optional state-blob restore at checkpoints.

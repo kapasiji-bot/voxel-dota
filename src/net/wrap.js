@@ -44,10 +44,14 @@ function netInstall() {
     if (type === 'deliver' && !c.bag.length && !(h.stash || []).length) return '没有需要运送的物品';
     return netCmd({ k: 'cour', type, o: h.id });
   };
-  // visual scope + silent while fast-forwarding a rejoin
+  // visual scope + silent while fast-forwarding a rejoin; ffSkipVis also no-ops model/particle work for faster catch-up
   const vis = (f, quiet) => { const w = visScope(f); return quiet ? function () { return NET.ff ? undefined : w.apply(this, arguments); } : w; };
+  // skip particles/floats during catch-up; NEVER skip syncModel (projectile Y) or updateCorpses (removes dead units from `units`)
+  const skipFF = f => { const w = visScope(f); return function () { return (NET.ff && NET.ffSkipVis) ? undefined : w.apply(this, arguments); }; };
   spawnP = vis(spawnP, true); burst = vis(burst, true); ringP = vis(ringP, true); addFloat = vis(addFloat, true); auPlay = vis(auPlay, true);
-  updateParticles = vis(updateParticles); updateFloats = vis(updateFloats); updateCorpses = vis(updateCorpses); syncModel = vis(syncModel);
+  updateParticles = skipFF(updateParticles); updateFloats = skipFF(updateFloats);
+  updateCorpses = vis(updateCorpses);   // visScope → corpse Math.random is native; unit splice still runs during FF
+  syncModel = vis(syncModel);
   O.msg = msg; O.err = err; O.killFeed = killFeed;
   msg = function () { return NET.ff ? undefined : O.msg.apply(this, arguments); };
   err = function () { return NET.ff ? undefined : O.err.apply(this, arguments); };

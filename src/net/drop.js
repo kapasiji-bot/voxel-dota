@@ -29,28 +29,42 @@ function netRejoin(p) {
   const free = G.heroes.filter(h => h.netGone && h.netHuman);
   const h = free.find(x => x.netName === p.name) || free[0];
   if (!h || G.over) { chanSend(p.ch, { t: 'bye', why: G.over ? '对局已经结束' : '对局进行中，没有可接管的掉线英雄' }); setTimeout(() => chanClosed(p.ch, 'full'), 300); return; }
-  p.slot = h.netSlot; p.synced = false; p.ack = -1;
-  chanSend(p.ch, { t: 'resume', spec: NET.spec, slot: p.slot, log: LS.log, upto: LS.n - 1, speed: NET.speed, paused: NET.paused, pid: p.pid });
+  p.slot = h.netSlot; p.synced = false; p.ack = -1; p.spectate = false;
+  chanSend(p.ch, { t: 'resume', spec: NET.spec, slot: p.slot, log: LS.log, upto: LS.n - 1, speed: NET.speed, paused: NET.paused, pid: p.pid, spectate: false, cps: LS.cps || [] });
   LS.pend.push({ k: 'human', s: p.slot, p: -1, name: p.name });
   chatLine({ sys: true, text: `${p.name} 正在重新加入（接管 ${h.def.name}，同步进度中…）` });
 }
 NET_H.resume = (_, m) => {
-  NET.me = m.pid; NET.speed = m.speed || 1;
-  netBegin(m.spec, m.slot);
-  LS.ffLog = new Map(m.log); LS.ffTo = m.upto; NET.ff = true; NET.ffTotal = m.upto + 1;
+  NET.me = m.pid; NET.speed = m.speed || 1; NET.spectating = !!m.spectate;
+  // mark FF before netBegin so pollers never see started&&!ff with work still pending
+  const upto = Math.max(0, m.upto | 0);
+  const logMap = new Map(m.log || []);
+  NET.ff = true; NET.ffSkipVis = true; NET.ffTotal = upto + 1; NET.ffMs = 0; NET.ffTicks = 0;
+  netBegin(m.spec, m.slot);   // lsReset clears ffTo — re-apply below
+  cpLoad(m.cps || []);
+  LS.ffLog = logMap; LS.ffTo = upto;
   if (m.paused) netSetPause(true);
   const o = $('netFF'); if (o) o.classList.remove('hidden');
 };
-// rejoin catch-up: re-simulate every tick up to the host's tick at the time of joining, ~45 ms of work per frame
+// rejoin / spectator catch-up: re-simulate ticks; skip-vis + larger budget vs the original 45 ms path
 function ffRun() {
-  const t0 = performance.now(), budget = document.hidden ? 200 : 45;
-  while (LS.n <= LS.ffTo && performance.now() - t0 < budget) execTick(LS.n, LS.ffLog.get(LS.n) || []);
-  const el = $('netFFTxt'); if (el) el.textContent = `正在同步对局进度… ${Math.floor(LS.n / NET.ffTotal * 100)}%（${fmtTime(G.time)}）`;
+  const t0 = performance.now(), budget = document.hidden ? 800 : (NET.ffSkipVis ? 250 : 45);
+  let n0 = LS.n;
+  while (LS.n <= LS.ffTo && performance.now() - t0 < budget) {
+    const n = LS.n;
+    execTick(n, LS.ffLog.get(n) || []);
+    if (n && LS.cps && LS.cps.length && n % CP_EVERY === 0) cpVerify(n, stateHash());
+  }
+  NET.ffMs += performance.now() - t0; NET.ffTicks += LS.n - n0;
+  const cp = cpLatest(), pct = Math.floor(LS.n / NET.ffTotal * 100);
+  const el = $('netFFTxt'); if (el) el.textContent = `正在同步对局进度… ${pct}%（${fmtTime(G.time)}）` + (cp ? ` · 检查点 ${LS.cpHits}/${LS.cps.length}` : '');
   if (LS.n > LS.ffTo) {
-    LS.ffTo = -1; LS.ffLog = null; NET.ff = false; LS.acc = 0;
+    LS.ffTo = -1; LS.ffLog = null; NET.ff = false; LS.acc = 0; NET.ffSkipVis = false;
     const o = $('netFF'); if (o) o.classList.add('hidden');
     floats.length = 0;
-    msg('同步完成，欢迎回来！', '#7cdc6a'); netToHost({ t: 'a', n: LS.n - 1 });
+    if (NET.spectating) { spectateSetup(); msg('观战同步完成', '#7cdc6a'); }
+    else msg('同步完成，欢迎回来！', '#7cdc6a');
+    netToHost({ t: 'a', n: LS.n - 1 });
   }
 }
 // joiner: the host's chan closed

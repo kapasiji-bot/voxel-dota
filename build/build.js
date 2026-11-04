@@ -17,7 +17,7 @@ const MANIFEST = [
   'core/loop.js', 'debug/api.js', 'debug/api2.js',
   // B11 LAN multiplayer (explicit order: later files register NET_H handlers at load time)
   'net/rng.js', 'net/sdp.js', 'net/peer.js', 'net/net.js', 'net/lobby.js', 'net/lobbyui.js', 'net/invite.js', 'net/menu.js', 'net/match.js',
-  'net/cmds.js', 'net/wrap.js', 'net/lockstep.js', 'net/sync.js', 'net/drop.js', 'net/chat.js', 'net/nethud.js', 'net/debugnet.js',
+  'net/cmds.js', 'net/wrap.js', 'net/lockstep.js', 'net/sync.js', 'net/checkpoint.js', 'net/spectate.js', 'net/drop.js', 'net/replay.js', 'net/replayui.js', 'net/chat.js', 'net/nethud.js', 'net/debugnet.js',
   'heroes/*', 'items/*',
   'main.js',
 ];

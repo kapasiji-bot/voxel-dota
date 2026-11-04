@@ -5,6 +5,7 @@
 //  • A chan silent for NET_DEAD ms counts as disconnected (host: player dropped → bot; joiner: host gone).
 const NET_DEAD = 15000;   // a slow machine's first match frame (shader compile) must not count as a disconnect
 function stateHash() {
+  lsRestore();   // never hash render-interpolated positions (lockstep peers / replay / checkpoints)
   let h = 2166136261 >>> 0;
   const mix = v => { h = Math.imul(h ^ (v | 0), 16777619) >>> 0; };
   mix(G.frame); mix(RNG.n); mix(RNG.a); mix(units.length); mix(projectiles.length);

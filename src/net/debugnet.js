@@ -1,6 +1,7 @@
 // net/debugnet.js — B11 test / debug hooks on window.GameAPI (tests drive the real lobby UI and read these).
 Object.assign(GameAPI, {
-  NET, LOB, LS, RNG, sdpParse, sdpBuild, encodeCode, decodeCode, stateHash, netStartGame, netSetPause, togglePause, chatSend, invNew, lobbyAct,
+  NET, LOB, LS, RNG, REPLAY, sdpParse, sdpBuild, encodeCode, decodeCode, stateHash, netStartGame, netBegin, netSetPause, togglePause, chatSend, invNew, lobbyAct,
+  cpInfo, cpLatest, cpLoad, cpVerify, CP_EVERY, replayCapture, replaySaveMem, replayStart, replayValidate, replayExport, spectateFollow, spectateCycle, netIsSpectating,
   netOrder(o, u) { return issueOrder(u || G.player, o); },   // the live (wrapped) binding → a LAN command
   netCast(i, t) { return orderCast(G.player, i, t); }, netLearn(i) { return learnSkill(i); },
   // headless 'human': every 1.5 s the local hero learns skills, buys, casts on visible enemy heroes, attack-moves (all via commands)
@@ -23,6 +24,6 @@ Object.assign(GameAPI, {
   netUnits(filter) { lsRestore(); return units.filter(u => !u.dead && (!filter || filter(u))).map(u => [u.id, +u.x.toFixed(3), +u.z.toFixed(3), +u.hp.toFixed(2)]); },
   netHeroes() { lsRestore(); return G.heroes.map(h => ({ id: h.id, hero: h.def.id, slot: h.netSlot, team: h.team, x: h.x, z: h.z, hp: h.hp, gold: h.gold, items: h.items.map(i => i && i.id), bot: !!h.bot, gone: !!h.netGone, name: h.netName })); },
   netKill() { if (NET.role === 'host') for (const p of NET.peers) chanClosed(p.ch, 'closed'); else chanClosed(NET.hostCh, 'closed'); },
-  netInfo() { return { role: NET.role, me: NET.me, slot: NET.mySlot, tick: LS.n, q: LS.q.length, peers: NET.peers.map(p => ({ pid: p.pid, slot: p.slot, ack: p.ack, rtt: p.rtt, gone: p.gone, synced: p.synced, name: p.name })), desync: NET.desync.slice(), ff: NET.ff, ping: NET.myPing, stats: NET.stats, rng: RNG.n }; },
+  netInfo() { return { role: NET.role, me: NET.me, slot: NET.mySlot, tick: LS.n, q: LS.q.length, peers: NET.peers.map(p => ({ pid: p.pid, slot: p.slot, ack: p.ack, rtt: p.rtt, gone: p.gone, synced: p.synced, name: p.name, spectate: !!p.spectate })), desync: NET.desync.slice(), ff: NET.ff, ping: NET.myPing, stats: NET.stats, rng: RNG.n, spectating: !!NET.spectating, cps: (LS.cps || []).length, ffMs: NET.ffMs, ffTicks: NET.ffTicks, cpHits: LS.cpHits, cpMiss: LS.cpMiss }; },
 });
 NET_H.speed = (_, m) => { NET.speed = m.s; };

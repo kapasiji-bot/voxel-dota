@@ -277,3 +277,9 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 #netEnd,#netFF{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center}
 #netEnd .panel,#netFF .panel{padding:16px 26px;text-align:center;max-width:560px;font-size:16px;line-height:1.6}#netEnd h2{color:#ff8a80;margin:0 0 8px}
 #netEnd .mcbtn{margin-top:12px}#netFFTxt{font-size:20px;color:#ffd54f}
+
+#repHud{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:12;padding:3px 8px;font-size:13px;display:flex;gap:6px;align-items:center}
+#repHud .mcbtn{font-size:12px;padding:1px 6px}
+#repLoad{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:70;width:min(520px,92vw);padding:14px 18px}
+#repLoad h2{margin:0 0 8px;color:#ffd54f}#repStatus{margin:8px 0;color:#cfd8dc;font-size:14px}#repStatus.bad{color:#ff8a80}
+#repFile{display:block;margin:8px 0;color:#eee}

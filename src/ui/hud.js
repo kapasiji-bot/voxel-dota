@@ -21,7 +21,7 @@ function buildSkillBar(U) {
   });
 }
 function buildHUD() {
-  const P = G.player;
+  const P = G.player; if (!P) return;   // spectator resume sets follow target first; tolerate race
   buildSkillBar(P);
   const ib = $('items'); ib.innerHTML = ''; hudEl.items = [];
   for (let i = 0; i < 6; i++) {

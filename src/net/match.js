@@ -26,12 +26,14 @@ NET_H.start = (_, m) => { const s = m.spec.slots.find(x => x.pid === NET.me); if
 function netBegin(spec, mySlot) {
   if (G.started) return;
   NET.on = true; NET.started = true; NET.spec = spec; NET.mySlot = mySlot;
+  if (mySlot < 0) NET.spectating = true;
   rngInstall(); netInstall(); rngSeed(spec.seed); lsReset();
-  const me = spec.slots.find(s => s.i === mySlot);
+  const me = mySlot >= 0 ? spec.slots.find(s => s.i === mySlot) : null;
+  const myTeam = me ? me.team : RAD;
   simRun(() => {
     for (const u of units) u.acq = Math.random() * 0.3;   // boot-time randomness (buildings) → shared sequence
     for (const s of spec.slots) {
-      const ring = s.i === mySlot ? '#4cff4c' : s.team === me.team ? '#40c4ff' : '#ff4040';
+      const ring = s.i === mySlot ? '#4cff4c' : s.team === myTeam ? '#40c4ff' : '#ff4040';
       const h = createHero(s.hero, s.team, { slot: s.ti, bot: s.k === 'b', ring });
       Object.assign(h, { netSlot: s.i, netName: s.name, netLane: s.lane, netDiff: s.diff, netHuman: s.k === 'h' });
       if (s.k === 'b') h.bot = makeBot(h, s.lane, s.diff);
@@ -42,11 +44,15 @@ function netBegin(spec, mySlot) {
   G.started = true;
   for (const id of ['lobby', 'select', 'netInv']) { const el = $(id); if (el) el.classList.add('hidden'); }
   $('game').classList.remove('hidden');
+  if (NET.spectating && !G.player) spectateSetup(myTeam);   // before buildHUD — HUD needs a follow target
   buildHUD(); netHudShow();   // net/nethud.js
-  const sx = G.player.x < 0 ? 1 : -1; G.cam.x = G.player.x + 6 * sx; G.cam.z = G.player.z - 8 * sx; G.cam.dist = 58;
+  const P = G.player; if (P) { const sx = P.x < 0 ? 1 : -1; G.cam.x = P.x + 6 * sx; G.cam.z = P.z - 8 * sx; G.cam.dist = 58; }
   const n = t => spec.slots.filter(s => s.team === t).length;
-  msg(`局域网对局：天辉 ${n(RAD)} 名英雄 vs 夜魇 ${n(DIRE)} 名英雄 · 你在${TEAM_NAME[me.team]}`, '#80d8ff');
-  msg(me.team === RAD ? '摧毁夜魇遗迹即可获胜！' : '摧毁天辉遗迹即可获胜！', '#ffd54f');
+  if (NET.spectating) msg(`观战 · 天辉 ${n(RAD)} vs 夜魇 ${n(DIRE)}`, '#80d8ff');
+  else {
+    msg(`局域网对局：天辉 ${n(RAD)} 名英雄 vs 夜魇 ${n(DIRE)} 名英雄 · 你在${TEAM_NAME[me.team]}`, '#80d8ff');
+    msg(me.team === RAD ? '摧毁夜魇遗迹即可获胜！' : '摧毁天辉遗迹即可获胜！', '#ffd54f');
+  }
   msg('Enter 队伍聊天 · Shift+Enter 全体聊天', '#b0bec5');
-  emit('netStart', { slots: spec.slots.length });
+  emit('netStart', { slots: spec.slots.length, spectate: !!NET.spectating });
 }
