@@ -54,15 +54,15 @@ function handleLeftTarget(sx, sy) {
   if (tg.kind === 'item') { if (g) { const e = useItem(tg.owner || P, tg.slot, { x: g.x, z: g.z }); if (e) err(e); } return; }
   const e = orderCast(tg.caster || P, tg.slot, tg.mode === 'unit' ? u : g);
   if (e) { err(e); if (tg.mode === 'unit') G.targeting = tg; }
+  else if (g) clickMarker(g.x, g.z, (tg.def && tg.def.color) || '#ffd54f');
+  else if (u) ringP(u.x, u.z, (u.radius || 0.5) + 0.5, 14, (tg.def && tg.def.color) || '#ffd54f', 0.4, 0.2, 0.15);
 }
 // keyboard/HUD entry: no-target abilities cast at once, others enter targeting mode
 function pressSkill(i) {
   const P = ctlCaster(), ab = P.abilities[i]; if (!ab) return;   // the active unit if it can cast (Spirit Bear), else the hero
   const d = ab.def, e = canCast(P, ab); if (e) { err(e); return; }
   if (d.target === 'none' || isRecast(P, ab)) { orderCast(P, i, null); return; }
-  G.targeting = { kind: 'skill', caster: P, slot: i, mode: d.target === 'unit' ? 'unit' : 'point', def: d,
-    range: d.target === 'direction' ? 0 : castRange(P, ab) + (d.target === 'unit' ? P.radius : 0), radius: lvVal(d, 'radius', ab.lvl),
-    line: d.target === 'direction' ? { len: lvVal(d, 'len', ab.lvl), w: lvVal(d, 'w1', ab.lvl) || 4, w0: d.cone ? lvVal(d, 'w0', ab.lvl) : undefined } : null };
+  G.targeting = skillTargeting(P, i, ab);
 }
 function invUnit() { const U = ctlActive(); return U && U.items ? U : G.player; }   // B12: bear inventory
 function pressItem(slot) {

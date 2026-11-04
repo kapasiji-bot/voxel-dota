@@ -27,6 +27,7 @@ function initAudioHooks() {
   Events.on('buy', e => { if (auU(e.unit) === G.player) sfxUI('buy'); });
   Events.on('sell', e => { if (auU(e.unit) === G.player) sfxUI('sell'); });
   Events.on('pickup', e => { const h = auU(e.unit); if (h) auPlay('pickup', { unit: h, global: h === G.player }); });
+  Events.on('lastHit', e => { const u = auU(e.unit); if (u) auPlay('creepDie', { unit: u, vol: 0.35 }); });  // sharper LH thud (coin already from giveGold)
   Events.on('reincarnate', e => { const h = auU(e.unit); if (h) auPlay('sp_heal', { unit: h }); });
   Events.on('roshanSlam', () => { const R = rosh().unit; if (R) { auPlay('slam', { unit: R }); auPlay('roar', { unit: R, vol: 0.6 }); } });
   Events.on('roshanBash', e => { const t = auU(e.target); if (t) auPlay('sp_stun', { unit: t, vol: 0.7 }); });

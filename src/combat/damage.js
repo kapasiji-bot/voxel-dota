@@ -54,7 +54,7 @@ function killUnit(u, killer) {
   if (!u.isBuilding) {
     const kh = ownerOf(killer);   // last hits by summons / illusions count for their hero
     if (kh) {
-      if (u.team !== kh.team) { kh.lh++; giveGold(u.gold, u, kh); }
+      if (u.team !== kh.team) { kh.lh++; giveGold(u.gold, u, kh); if (kh === G.player) { emit('lastHit', { unit: u.id, gold: u.gold }); ringP(u.x, u.z, u.radius + 0.6, 16, '#ffd54f', 0.35, 0.22, 0.2); } }
       else { kh.dn++; if (kh === P) addFloat(u, '!', '#ffffff', 26, 1); }
     }
     shareXP(u.team, u.x, u.z, 16, u.xp * XP_MULT * (killer && killer.team === u.team ? 0.4 : 1));

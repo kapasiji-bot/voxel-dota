@@ -39,10 +39,11 @@ Heroes come in batches of 3–4. Each batch is grouped by the engine features it
 | **Jungle/AI polish ✅ batch 5** | Bot jungle **stack** (drag neutrals out of `CAMP_BOX` before minute spawn); no invented pull camps (stack+farm); **courier snipe** when safe; Tinker **Rearm** (`ai.rearm`, botBigSpells + keepChannel + cheap rearm combo) | done |
 | **Shared ally courier ✅ batch 6** | Teammates issue deliver/home/secret on an ally courier (LAN lockstep `cour` + owner id); stash/bag/gold stay with the owner; F3 / Shift+F3 + HUD ownership; click/Tab/F2 select team couriers | done |
 | **Render perf ✅ batch 7** | Unit models → 1–2 **SkinnedMesh**es per unit (bones = parts); camera-fitted shadow frustum; near-cam castShadow cull | done |
-| Later polish | More item-aware bot recipes; indicators/feel; creep GPU instancing; neutrals/bot polish | planned |
+| **Indicators / feel ✅** | ability targeting previews (cast-range ring green/red, AoE disk, cone trapezoid via `w0`, line skillshot, unit aim dash, A-move attack ring); cast confirm click marker; last-hit gold ring + soft thud (`lastHit` event); `IND`/`indInfo` for tests (`b27.js`) | done |
+| Later polish | More item-aware bot recipes; creep GPU instancing; neutrals/bot polish | planned |
 
 ## Suggested next steps (older notes)
-- **Items / UI / Roshan / jungle / courier / render polish:** batches 1–7 done. LAN replay / spectate / checkpoints done (B11 follow-ups). Next optional: indicators/feel, creep GPU instancing.
+- **Items / UI / Roshan / jungle / courier / render polish:** batches 1–7 done. LAN replay / spectate / checkpoints done (B11 follow-ups). Indicators / feel done. Next optional: creep GPU instancing.
 - **Sound (B9 follow-ups):** voice lines / recorded announcer, per-hero attack timbres, reverb in the Roshan pit, music.
 - **Teamwork (B10/B12 follow-ups):** item-aware combos (BKB → Black Hole, Blink → Eul's), dynamic ward spots; smoke/buyback/glyph/lane-farmer already in B12.
 - **Jungle (B8 follow-ups):** Aegis deny + Refresher Shard (batch 4); bots stacking + courier snipe + Tinker Rearm (batch 5); shared ally courier (batch 6). Still open: neutral item drops.

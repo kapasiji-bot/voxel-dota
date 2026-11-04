@@ -102,3 +102,14 @@ function executeCast(h, ab, target) {
   afterCast(h, ab);
   return true;
 }
+
+// build G.targeting payload for active skills (range / AoE / line / cone) — used by render/indicators.js
+function skillTargeting(P, i, ab) {
+  const d = ab.def, mode = d.target === 'unit' ? 'unit' : 'point';
+  const range = d.target === 'direction' ? 0 : castRange(P, ab) + (d.target === 'unit' ? P.radius : 0);
+  const radius = lvVal(d, 'radius', ab.lvl), len = lvVal(d, 'len', ab.lvl), w0 = lvVal(d, 'w0', ab.lvl), w1 = lvVal(d, 'w1', ab.lvl);
+  let line = null;
+  if (d.target === 'direction') line = { len: len || 16, w: w1 || 4, w0: w0 != null ? w0 : undefined };
+  else if (d.target === 'point' && len) line = { len: len, w: w1 || 2.5, w0: w0 != null ? w0 : undefined };   // 掘地穿刺-style
+  return { kind: 'skill', caster: P, slot: i, mode, def: d, range, radius, line };
+}

@@ -25,3 +25,4 @@ Object.assign(GameAPI, {
   // polish batch 7: render perf
   sun, updateShadowCam, updateCamera, vmat, vglow,
 });
+Object.assign(GameAPI, { IND, indInfo, updateIndicators, pressSkill, skillTargeting, mouse });

@@ -361,7 +361,7 @@ body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC","Noto Sans S
 </script>
 <script>(function(){
 'use strict';
-const BUILD_ID = 'f791749d0b';
+const BUILD_ID = 'e371d0699e';
 // ===== core/util.js =====
 // core/util.js — constants & math helpers shared by every module (all modules share one bundle scope).
 const T = THREE;
@@ -2662,7 +2662,7 @@ function killUnit(u, killer) {
   if (!u.isBuilding) {
     const kh = ownerOf(killer);   // last hits by summons / illusions count for their hero
     if (kh) {
-      if (u.team !== kh.team) { kh.lh++; giveGold(u.gold, u, kh); }
+      if (u.team !== kh.team) { kh.lh++; giveGold(u.gold, u, kh); if (kh === G.player) { emit('lastHit', { unit: u.id, gold: u.gold }); ringP(u.x, u.z, u.radius + 0.6, 16, '#ffd54f', 0.35, 0.22, 0.2); } }
       else { kh.dn++; if (kh === P) addFloat(u, '!', '#ffffff', 26, 1); }
     }
     shareXP(u.team, u.x, u.z, 16, u.xp * XP_MULT * (killer && killer.team === u.team ? 0.4 : 1));
@@ -3023,6 +3023,17 @@ function executeCast(h, ab, target) {
   if (ab.def.channel) startChannel(h, ab, target);
   afterCast(h, ab);
   return true;
+}
+
+// build G.targeting payload for active skills (range / AoE / line / cone) — used by render/indicators.js
+function skillTargeting(P, i, ab) {
+  const d = ab.def, mode = d.target === 'unit' ? 'unit' : 'point';
+  const range = d.target === 'direction' ? 0 : castRange(P, ab) + (d.target === 'unit' ? P.radius : 0);
+  const radius = lvVal(d, 'radius', ab.lvl), len = lvVal(d, 'len', ab.lvl), w0 = lvVal(d, 'w0', ab.lvl), w1 = lvVal(d, 'w1', ab.lvl);
+  let line = null;
+  if (d.target === 'direction') line = { len: len || 16, w: w1 || 4, w0: w0 != null ? w0 : undefined };
+  else if (d.target === 'point' && len) line = { len: len, w: w1 || 2.5, w0: w0 != null ? w0 : undefined };   // 掘地穿刺-style
+  return { kind: 'skill', caster: P, slot: i, mode, def: d, range, radius, line };
 }
 
 // ===== abilities/channel.js =====
@@ -5186,15 +5197,15 @@ function handleLeftTarget(sx, sy) {
   if (tg.kind === 'item') { if (g) { const e = useItem(tg.owner || P, tg.slot, { x: g.x, z: g.z }); if (e) err(e); } return; }
   const e = orderCast(tg.caster || P, tg.slot, tg.mode === 'unit' ? u : g);
   if (e) { err(e); if (tg.mode === 'unit') G.targeting = tg; }
+  else if (g) clickMarker(g.x, g.z, (tg.def && tg.def.color) || '#ffd54f');
+  else if (u) ringP(u.x, u.z, (u.radius || 0.5) + 0.5, 14, (tg.def && tg.def.color) || '#ffd54f', 0.4, 0.2, 0.15);
 }
 // keyboard/HUD entry: no-target abilities cast at once, others enter targeting mode
 function pressSkill(i) {
   const P = ctlCaster(), ab = P.abilities[i]; if (!ab) return;   // the active unit if it can cast (Spirit Bear), else the hero
   const d = ab.def, e = canCast(P, ab); if (e) { err(e); return; }
   if (d.target === 'none' || isRecast(P, ab)) { orderCast(P, i, null); return; }
-  G.targeting = { kind: 'skill', caster: P, slot: i, mode: d.target === 'unit' ? 'unit' : 'point', def: d,
-    range: d.target === 'direction' ? 0 : castRange(P, ab) + (d.target === 'unit' ? P.radius : 0), radius: lvVal(d, 'radius', ab.lvl),
-    line: d.target === 'direction' ? { len: lvVal(d, 'len', ab.lvl), w: lvVal(d, 'w1', ab.lvl) || 4, w0: d.cone ? lvVal(d, 'w0', ab.lvl) : undefined } : null };
+  G.targeting = skillTargeting(P, i, ab);
 }
 function invUnit() { const U = ctlActive(); return U && U.items ? U : G.player; }   // B12: bear inventory
 function pressItem(slot) {
@@ -5355,32 +5366,72 @@ function ctlKey(e, k) {
 }
 
 // ===== render/indicators.js =====
-// render/indicators.js — ground rings/lines shown while targeting an ability or hovering a unit.
+// render/indicators.js — ground rings / cones / lines while targeting a skill, item, A-move, or hovering a unit.
+// Shapes: cast-range ring (green / red if out of range), AoE disk, direction line, trapezoid cone (w0→w1), attack-range ring.
 function indMat(c, o) { return new T.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, side: T.DoubleSide }); }
 function flat(geo) { geo.rotateX(-Math.PI / 2); return geo; }
-const rangeRing = new T.Mesh(flat(new T.RingGeometry(0.975, 1, 128)), indMat('#9cff9c', 0.6));
-const aoeRing = new T.Group(); aoeRing.add(new T.Mesh(flat(new T.CircleGeometry(1, 48)), indMat('#ffcc33', 0.22)), new T.Mesh(flat(new T.RingGeometry(0.94, 1, 64)), indMat('#ffdd55', 0.8)));
+const rangeRing = new T.Mesh(flat(new T.RingGeometry(0.975, 1, 128)), indMat('#9cff9c', 0.55));
+const atkRing = new T.Mesh(flat(new T.RingGeometry(0.97, 1, 96)), indMat('#80d8ff', 0.45));
+const aoeRing = new T.Group();
+aoeRing.add(new T.Mesh(flat(new T.CircleGeometry(1, 48)), indMat('#ffcc33', 0.2)), new T.Mesh(flat(new T.RingGeometry(0.93, 1, 64)), indMat('#ffdd55', 0.75)));
 const lineGeo = flat(new T.PlaneGeometry(1, 1)); lineGeo.translate(0, 0, 0.5);
-const lineInd = new T.Mesh(lineGeo, indMat('#ff8a3d', 0.32));
-const coneInd = new T.Mesh(new T.BufferGeometry(), indMat('#ce93d8', 0.3)); let _coneKey = '';   // cone spells (Sonic Wave): trapezoid w0 → w1
+const lineInd = new T.Mesh(lineGeo, indMat('#ff8a3d', 0.34));
+const coneInd = new T.Mesh(new T.BufferGeometry(), indMat('#ce93d8', 0.32)); let _coneKey = '';
 const hoverRing = new T.Mesh(flat(new T.RingGeometry(0.9, 1.15, 40)), indMat('#ff4444', 0.85));
-for (const m of [rangeRing, aoeRing, lineInd, coneInd, hoverRing]) { m.visible = false; m.position.y = 0.08; m.renderOrder = 5; scene.add(m); }
+const dashInd = new T.Mesh(lineGeo.clone(), indMat('#fff59d', 0.28));   // unit-target aim line caster → hover
+for (const m of [rangeRing, atkRing, aoeRing, lineInd, coneInd, hoverRing, dashInd]) { m.visible = false; m.position.y = 0.08; m.renderOrder = 5; scene.add(m); }
+const IND = { range: false, aoe: false, line: false, cone: false, atk: false, hover: false, dash: false, oor: false };
+function indInfo() { return Object.assign({}, IND, { tg: G.targeting ? { kind: G.targeting.kind, mode: G.targeting.mode, range: G.targeting.range || 0, radius: G.targeting.radius || 0, line: !!(G.targeting.line), w0: G.targeting.line && G.targeting.line.w0 } : null }); }
 function updateIndicators() {
   const P = G.player, tg = G.targeting;
-  rangeRing.visible = aoeRing.visible = lineInd.visible = coneInd.visible = hoverRing.visible = false;
+  rangeRing.visible = atkRing.visible = aoeRing.visible = lineInd.visible = coneInd.visible = hoverRing.visible = dashInd.visible = false;
+  IND.range = IND.aoe = IND.line = IND.cone = IND.atk = IND.hover = IND.dash = IND.oor = false;
   if (!G.started || !P) return;
   const hv = G.hover = mouse.overUI ? null : pickUnit(mouse.x, mouse.y);
-  if (hv) { hoverRing.visible = true; hoverRing.position.set(hv.x, (hv.model ? hv.model.position.y : 0) + 0.1, hv.z); const s = hv.radius + 0.5; hoverRing.scale.set(s, 1, s); hoverRing.material.color.set(hv.team === P.team ? '#55ff55' : '#ff4444'); }
+  if (hv) {
+    hoverRing.visible = IND.hover = true;
+    hoverRing.position.set(hv.x, (hv.model ? hv.model.position.y : 0) + 0.1, hv.z);
+    const s = hv.radius + 0.5; hoverRing.scale.set(s, 1, s);
+    hoverRing.material.color.set(hv.team === P.team ? '#55ff55' : '#ff4444');
+  }
   canvas.style.cursor = tg ? 'crosshair' : (hv && hv.team !== P.team ? 'pointer' : 'default');
   if (!tg || P.dead) return;
-  const g = groundAt(mouse.x, mouse.y);
-  if (tg.range) { rangeRing.visible = true; rangeRing.position.set(P.x, 0.1, P.z); rangeRing.scale.set(tg.range, 1, tg.range); }
-  if (!g) return;
-  if (tg.line && tg.line.w0 !== undefined) {
-    const k = tg.line.w0 + ':' + tg.line.w + ':' + tg.line.len; if (k !== _coneKey) { _coneKey = k; coneInd.geometry.dispose(); coneInd.geometry = coneGeo(tg.line.w0, tg.line.w, tg.line.len); }
-    coneInd.visible = true; coneInd.position.set(P.x, 0.12, P.z); coneInd.rotation.y = Math.atan2(g.x - P.x, g.z - P.z); rangeRing.visible = false;
-  } else if (tg.line) { lineInd.visible = true; lineInd.position.set(P.x, 0.12, P.z); lineInd.rotation.y = Math.atan2(g.x - P.x, g.z - P.z); lineInd.scale.set(tg.line.w, 1, tg.line.len); rangeRing.visible = false; }
-  else if (tg.radius && tg.mode === 'point') { aoeRing.visible = true; aoeRing.position.set(g.x, 0.12, g.z); aoeRing.scale.set(tg.radius, 1, tg.radius); }
+  const g = groundAt(mouse.x, mouse.y), caster = tg.caster || tg.owner || P;
+  const cx = caster.x, cz = caster.z;
+  // A-move / bare attack-range ring
+  if (tg.kind === 'amove') {
+    const r = (caster.range || 0) + (caster.radius || 0);
+    if (r > 0) { atkRing.visible = IND.atk = true; atkRing.position.set(cx, 0.09, cz); atkRing.scale.set(r, 1, r); }
+    return;
+  }
+  if (!g && !(tg.mode === 'unit' && hv)) {
+    if (tg.range) { rangeRing.visible = IND.range = true; rangeRing.position.set(cx, 0.1, cz); rangeRing.scale.set(tg.range, 1, tg.range); rangeRing.material.color.set('#9cff9c'); rangeRing.material.opacity = 0.55; }
+    return;
+  }
+  const aimX = (tg.mode === 'unit' && hv) ? hv.x : g.x, aimZ = (tg.mode === 'unit' && hv) ? hv.z : g.z;
+  if (tg.range) {
+    rangeRing.visible = IND.range = true; rangeRing.position.set(cx, 0.1, cz); rangeRing.scale.set(tg.range, 1, tg.range);
+    const oor = Math.hypot(aimX - cx, aimZ - cz) > tg.range + 0.05;
+    IND.oor = oor; rangeRing.material.color.set(oor ? '#ff6e6e' : '#9cff9c'); rangeRing.material.opacity = oor ? 0.7 : 0.55;
+  }
+  if (tg.line && tg.line.w0 != null) {
+    const k = tg.line.w0 + ':' + tg.line.w + ':' + tg.line.len;
+    if (k !== _coneKey) { _coneKey = k; coneInd.geometry.dispose(); coneInd.geometry = coneGeo(tg.line.w0, tg.line.w, tg.line.len); }
+    coneInd.visible = IND.cone = true; coneInd.position.set(cx, 0.12, cz); coneInd.rotation.y = Math.atan2(aimX - cx, aimZ - cz);
+  } else if (tg.line) {
+    lineInd.visible = IND.line = true; lineInd.position.set(cx, 0.12, cz);
+    lineInd.rotation.y = Math.atan2(aimX - cx, aimZ - cz); lineInd.scale.set(tg.line.w || 2.5, 1, tg.line.len);
+    // direction skillshots: hide cast-range ring; point+line (掘地穿刺) keeps it
+    if (tg.mode !== 'point') { rangeRing.visible = IND.range = false; }
+  } else if (tg.radius && (tg.mode === 'point' || (tg.mode === 'unit' && (hv || g)))) {
+    aoeRing.visible = IND.aoe = true; aoeRing.position.set(aimX, 0.12, aimZ); aoeRing.scale.set(tg.radius, 1, tg.radius);
+  }
+  // unit-target aim dashed line (Laguna etc.)
+  if (tg.mode === 'unit' && hv && !tg.line) {
+    const dx = hv.x - cx, dz = hv.z - cz, len = Math.hypot(dx, dz) || 0.01;
+    dashInd.visible = IND.dash = true; dashInd.position.set(cx, 0.11, cz); dashInd.rotation.y = Math.atan2(dx, dz); dashInd.scale.set(0.35, 1, len);
+    dashInd.material.color.set(IND.oor || (tg.range && len > tg.range) ? '#ff8a80' : '#fff59d');
+  }
 }
 
 // ===== ui/minimap.js =====
@@ -6520,6 +6571,7 @@ function initAudioHooks() {
   Events.on('buy', e => { if (auU(e.unit) === G.player) sfxUI('buy'); });
   Events.on('sell', e => { if (auU(e.unit) === G.player) sfxUI('sell'); });
   Events.on('pickup', e => { const h = auU(e.unit); if (h) auPlay('pickup', { unit: h, global: h === G.player }); });
+  Events.on('lastHit', e => { const u = auU(e.unit); if (u) auPlay('creepDie', { unit: u, vol: 0.35 }); });  // sharper LH thud (coin already from giveGold)
   Events.on('reincarnate', e => { const h = auU(e.unit); if (h) auPlay('sp_heal', { unit: h }); });
   Events.on('roshanSlam', () => { const R = rosh().unit; if (R) { auPlay('slam', { unit: R }); auPlay('roar', { unit: R, vol: 0.6 }); } });
   Events.on('roshanBash', e => { const t = auU(e.target); if (t) auPlay('sp_stun', { unit: t, vol: 0.7 }); });
@@ -6786,6 +6838,7 @@ Object.assign(GameAPI, {
   // polish batch 7: render perf
   sun, updateShadowCam, updateCamera, vmat, vglow,
 });
+Object.assign(GameAPI, { IND, indInfo, updateIndicators, pressSkill, skillTargeting, mouse });
 
 // ===== net/rng.js =====
 // net/rng.js — B11 deterministic randomness for LAN lockstep. In multiplayer every peer runs the same simulation from the same
